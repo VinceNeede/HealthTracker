@@ -1655,7 +1655,7 @@ function renderCompareBar() {
         <span class="expand-btn" id="compareExpandBtn">⤢ ingrandisci</span>
       </div>
       <div class="chart-fixed-height"><canvas id="compareCanvas"></canvas></div>
-      <div class="compare-note">Parametri con unità diverse sono mostrati su assi separati (sinistra/destra) per restare confrontabili.</div>
+      <div class="compare-note">Parametri con unità diverse sono mostrati su assi separati (sinistra/destra), colorati come la linea a cui appartengono.</div>
     </div>
   `;
 
@@ -1724,11 +1724,15 @@ function drawCompareChart(params, series, canvasId) {
     x: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } }
   };
   unitsInvolved.forEach((u, i) => {
+    // colora l'asse come la linea del primo parametro che lo usa, così l'appartenenza
+    // asse↔linea si vede a colpo d'occhio invece di dover leggere il testo dell'unità
+    const axisColor = palette[params.findIndex(p => p.unit === u) % palette.length];
     scales['y_' + i] = {
       position: i % 2 === 0 ? 'left' : 'right',
-      ticks: { color: '#8a8f98', font: { size: 10 } },
+      ticks: { color: axisColor, font: { size: 10, weight: '600' } },
       grid: { display: i === 0, color: '#1c2028' },
-      title: { display: true, text: u, color: '#8a8f98', font: { size: 10 } }
+      border: { color: axisColor },
+      title: { display: true, text: u, color: axisColor, font: { size: 10, weight: '600' } }
     };
   });
 
