@@ -445,6 +445,9 @@
     <div class="chart-modal-title">Gestisci promemoria esami</div>
     <span id="remindersModalClose" class="close-btn" style="cursor:pointer;">chiudi ✕</span>
   </div>
+  <div style="flex-shrink:0; margin-bottom:10px;">
+    <input type="text" id="remindersSearch" placeholder="Cerca esame..." autocomplete="off" style="width:100%; box-sizing:border-box;">
+  </div>
   <div class="chart-modal-body reminders-modal-body" id="remindersModalBody"></div>
 </div>
 
@@ -1398,13 +1401,23 @@ async function getOverdueParams() {
 // a differenza della vista Andamento) così si può disattivare/riattivare il promemoria
 // di un esame non applicabile (es. litiemia se non si è in terapia col litio) senza
 // doverlo prima testare, e riattivarlo in seguito se la situazione cambia
-async function renderRemindersModal() {
+async function renderRemindersModal(filterText = '') {
   const body = document.getElementById('remindersModalBody');
   const overrides = await getIntervalOverrides();
-  const cats = [...new Set(PARAM_DICT.map(p => p.cat))];
+  const q = filterText.trim().toLowerCase();
+  const filtered = !q ? PARAM_DICT : PARAM_DICT.filter(p =>
+    p.nome.toLowerCase().includes(q) || (p.alias && p.alias.toLowerCase().includes(q))
+  );
+  const cats = [...new Set(filtered.map(p => p.cat))];
+
+  if (filtered.length === 0) {
+    body.innerHTML = '<div class="empty">Nessun esame trovato</div>';
+    return;
+  }
+
   body.innerHTML = cats.map(cat => `
     <div class="reminders-group-title">${cat}</div>
-    ${PARAM_DICT.filter(p => p.cat === cat).map(p => `
+    ${filtered.filter(p => p.cat === cat).map(p => `
       <div class="reminders-row">
         <div class="reminders-row-name">${p.nome}</div>
         <div class="reminders-row-controls">${intervalEditorHTML(p, overrides, 'rem')}</div>
@@ -1412,9 +1425,9 @@ async function renderRemindersModal() {
     `).join('')}
   `).join('');
 
-  PARAM_DICT.forEach(p => {
+  filtered.forEach(p => {
     bindIntervalEditor(p.key, 'rem', async () => {
-      await renderRemindersModal();
+      await renderRemindersModal(document.getElementById('remindersSearch').value);
       await renderOverdueBanner();
       const andView = document.getElementById('view-andamento');
       if (andView && andView.style.display !== 'none') await renderAndamento();
@@ -1759,6 +1772,7 @@ document.addEventListener('keydown', (e) => {
 
 function openRemindersModal() {
   document.getElementById('remindersModal').classList.add('open');
+  document.getElementById('remindersSearch').value = '';
   renderRemindersModal();
 }
 function closeRemindersModal() {
@@ -1768,6 +1782,9 @@ document.getElementById('openRemindersBtn').addEventListener('click', openRemind
 document.getElementById('remindersModalClose').addEventListener('click', closeRemindersModal);
 document.getElementById('remindersModal').addEventListener('click', (e) => {
   if (e.target.id === 'remindersModal') closeRemindersModal();
+});
+document.getElementById('remindersSearch').addEventListener('input', (e) => {
+  renderRemindersModal(e.target.value);
 });
 
 // --- Toggle tra le due viste ---
