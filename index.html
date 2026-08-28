@@ -354,6 +354,22 @@
     min-height: 0;
   }
   .chart-modal-body canvas { max-height: 100% !important; }
+  .reminders-modal-body { overflow-y: auto; }
+  .reminders-group-title {
+    font-size: 0.72rem; font-weight: 600; color: #6f7684;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    margin: 14px 0 6px;
+  }
+  .reminders-group-title:first-child { margin-top: 0; }
+  .reminders-row {
+    border: 1px solid #262a33; border-radius: 10px;
+    padding: 8px 10px; margin-bottom: 8px;
+  }
+  .reminders-row-name { font-size: 0.8rem; color: #d8dae0; margin-bottom: 6px; }
+  .reminders-row-controls {
+    font-size: 0.74rem; color: #8a8f98;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
   .expand-btn {
     cursor: pointer;
     color: #8a8f98;
@@ -384,6 +400,7 @@
     <option value="M">Uomo</option>
     <option value="F">Donna</option>
   </select>
+  <button class="btn secondary small" id="openRemindersBtn" style="margin-left:auto;">⚙️ Gestisci promemoria</button>
 </div>
 
 <div class="view-tabs">
@@ -421,6 +438,14 @@
   <div class="chart-modal-body">
     <canvas id="chartModalCanvas"></canvas>
   </div>
+</div>
+
+<div id="remindersModal" class="chart-modal-overlay">
+  <div class="chart-modal-header">
+    <div class="chart-modal-title">Gestisci promemoria esami</div>
+    <span id="remindersModalClose" class="close-btn" style="cursor:pointer;">chiudi ✕</span>
+  </div>
+  <div class="chart-modal-body reminders-modal-body" id="remindersModalBody"></div>
 </div>
 
 <script>
@@ -624,6 +649,50 @@ function getRange(param) {
     return param.rangeBySex[currentSesso];
   }
   return { min: param.min, max: param.max };
+}
+
+// markup riutilizzabile per l'editor "promemoria ogni N mesi / nessun promemoria",
+// usato sia nel dettaglio della card Andamento sia nel pannello "Gestisci promemoria"
+// (dove compaiono anche gli esami mai inseriti, per poterli disattivare/riattivare
+// senza doverli prima testare — es. la litiemia se non si è in terapia col litio)
+function intervalEditorHTML(p, overrides, idPrefix) {
+  const months = effectiveIntervalMonths(p, overrides);
+  const hasOverride = p.key in overrides;
+  const isOff = overrides[p.key] === 'off';
+  return `
+    <span>Promemoria controllo ogni</span>
+    <input type="number" min="1" step="1" id="${idPrefix}-interval-${p.key}" value="${months || ''}" ${isOff ? 'disabled' : ''} style="width:56px; background:#12151c; border:1px solid #2a2f3a; border-radius:6px; color:#fff; padding:3px 6px;">
+    <span>mesi</span>
+    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+      <input type="checkbox" id="${idPrefix}-interval-off-${p.key}" ${isOff ? 'checked' : ''}>
+      nessun promemoria
+    </label>
+    ${hasOverride ? `<span class="expand-btn" id="${idPrefix}-interval-reset-${p.key}">↺ ripristina predefinito</span>` : ''}
+  `;
+}
+
+// collega gli event handler dell'editor sopra; onChange viene richiamato dopo ogni
+// modifica per permettere ai chiamanti di ri-renderizzare le viste coinvolte
+function bindIntervalEditor(paramKey, idPrefix, onChange) {
+  const intervalInput = document.getElementById(`${idPrefix}-interval-${paramKey}`);
+  if (intervalInput) intervalInput.addEventListener('change', async (e) => {
+    e.stopPropagation();
+    const months = Math.max(1, parseInt(e.target.value, 10) || 1);
+    await setIntervalOverride(paramKey, months);
+    await onChange();
+  });
+  const offCheckbox = document.getElementById(`${idPrefix}-interval-off-${paramKey}`);
+  if (offCheckbox) offCheckbox.addEventListener('change', async (e) => {
+    e.stopPropagation();
+    await setIntervalOverride(paramKey, e.target.checked ? 'off' : null);
+    await onChange();
+  });
+  const resetBtn = document.getElementById(`${idPrefix}-interval-reset-${paramKey}`);
+  if (resetBtn) resetBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await setIntervalOverride(paramKey, null);
+    await onChange();
+  });
 }
 
 // segna "adesso" come ultima modifica locale — usato dalla sincronizzazione per il last-write-wins
@@ -1325,6 +1394,34 @@ async function getOverdueParams() {
   });
 }
 
+// pannello "Gestisci promemoria": elenca TUTTI gli esami (anche quelli mai inseriti,
+// a differenza della vista Andamento) così si può disattivare/riattivare il promemoria
+// di un esame non applicabile (es. litiemia se non si è in terapia col litio) senza
+// doverlo prima testare, e riattivarlo in seguito se la situazione cambia
+async function renderRemindersModal() {
+  const body = document.getElementById('remindersModalBody');
+  const overrides = await getIntervalOverrides();
+  const cats = [...new Set(PARAM_DICT.map(p => p.cat))];
+  body.innerHTML = cats.map(cat => `
+    <div class="reminders-group-title">${cat}</div>
+    ${PARAM_DICT.filter(p => p.cat === cat).map(p => `
+      <div class="reminders-row">
+        <div class="reminders-row-name">${p.nome}</div>
+        <div class="reminders-row-controls">${intervalEditorHTML(p, overrides, 'rem')}</div>
+      </div>
+    `).join('')}
+  `).join('');
+
+  PARAM_DICT.forEach(p => {
+    bindIntervalEditor(p.key, 'rem', async () => {
+      await renderRemindersModal();
+      await renderOverdueBanner();
+      const andView = document.getElementById('view-andamento');
+      if (andView && andView.style.display !== 'none') await renderAndamento();
+    });
+  });
+}
+
 let compareSet = new Set(); // paramKey selezionati per il confronto
 let andOpenKey = null;      // card attualmente espansa con grafico singolo
 
@@ -1384,8 +1481,6 @@ async function renderAndamento() {
         const detail = document.createElement('div');
         detail.className = 'and-detail';
         detail.id = 'and-detail-' + p.key;
-        const hasOverride = p.key in overrides;
-        const isOff = overrides[p.key] === 'off';
         detail.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <div style="font-size:0.9rem; font-weight:600; color:#fff;">${p.nome}</div>
@@ -1396,14 +1491,7 @@ async function renderAndamento() {
           </div>
           <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px;">Range di riferimento: ${range.min} – ${range.max} ${p.unit}</div>
           <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span>Promemoria controllo ogni</span>
-            <input type="number" min="1" step="1" id="and-interval-${p.key}" value="${months || ''}" ${isOff ? 'disabled' : ''} style="width:56px; background:#12151c; border:1px solid #2a2f3a; border-radius:6px; color:#fff; padding:3px 6px;">
-            <span>mesi</span>
-            <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-              <input type="checkbox" id="and-interval-off-${p.key}" ${isOff ? 'checked' : ''}>
-              nessun promemoria
-            </label>
-            ${hasOverride ? `<span class="expand-btn" id="and-interval-reset-${p.key}">↺ ripristina predefinito</span>` : ''}
+            ${intervalEditorHTML(p, overrides, 'and')}
           </div>
           <div class="chart-fixed-height"><canvas id="and-canvas-${p.key}"></canvas></div>
         `;
@@ -1448,29 +1536,7 @@ async function renderAndamento() {
       e.stopPropagation();
       openChartModal(p.nome, () => drawSingleChart(p, series[andOpenKey], 'chartModalCanvas'));
     });
-    const intervalInput = document.getElementById('and-interval-' + andOpenKey);
-    if (intervalInput) intervalInput.addEventListener('change', async (e) => {
-      e.stopPropagation();
-      const months = Math.max(1, parseInt(e.target.value, 10) || 1);
-      await setIntervalOverride(andOpenKey, months);
-      await renderAndamento();
-      await renderOverdueBanner();
-    });
-    const intervalOffCheckbox = document.getElementById('and-interval-off-' + andOpenKey);
-    if (intervalOffCheckbox) intervalOffCheckbox.addEventListener('change', async (e) => {
-      e.stopPropagation();
-      if (e.target.checked) {
-        await setIntervalOverride(andOpenKey, 'off');
-      } else {
-        await setIntervalOverride(andOpenKey, null);
-      }
-      await renderAndamento();
-      await renderOverdueBanner();
-    });
-    const intervalResetBtn = document.getElementById('and-interval-reset-' + andOpenKey);
-    if (intervalResetBtn) intervalResetBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await setIntervalOverride(andOpenKey, null);
+    bindIntervalEditor(andOpenKey, 'and', async () => {
       await renderAndamento();
       await renderOverdueBanner();
     });
@@ -1686,6 +1752,22 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && document.getElementById('chartModal').classList.contains('open')) {
     closeChartModal();
   }
+  if (e.key === 'Escape' && document.getElementById('remindersModal').classList.contains('open')) {
+    closeRemindersModal();
+  }
+});
+
+function openRemindersModal() {
+  document.getElementById('remindersModal').classList.add('open');
+  renderRemindersModal();
+}
+function closeRemindersModal() {
+  document.getElementById('remindersModal').classList.remove('open');
+}
+document.getElementById('openRemindersBtn').addEventListener('click', openRemindersModal);
+document.getElementById('remindersModalClose').addEventListener('click', closeRemindersModal);
+document.getElementById('remindersModal').addEventListener('click', (e) => {
+  if (e.target.id === 'remindersModal') closeRemindersModal();
 });
 
 // --- Toggle tra le due viste ---
