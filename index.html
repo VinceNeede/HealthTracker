@@ -16,6 +16,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -433,8 +435,12 @@
 <div id="chartModal" class="chart-modal-overlay">
   <div class="chart-modal-header">
     <div id="chartModalTitle" class="chart-modal-title"></div>
-    <span id="chartModalClose" class="close-btn" style="cursor:pointer;">chiudi ✕</span>
+    <div>
+      <span id="chartModalResetZoom" class="close-btn" style="cursor:pointer; margin-right:8px;">↺ reset zoom</span>
+      <span id="chartModalClose" class="close-btn" style="cursor:pointer;">chiudi ✕</span>
+    </div>
   </div>
+  <div style="font-size:0.68rem; color:#6f7684; margin-bottom:8px; flex-shrink:0;">Rotellina/pinch per zoomare, trascina per spostarti</div>
   <div class="chart-modal-body">
     <canvas id="chartModalCanvas"></canvas>
   </div>
@@ -1575,6 +1581,16 @@ function destroyChartOn(canvasId) {
   }
 }
 
+// opzioni del plugin zoom/pan, attive solo nel grafico ingrandito (nel modal) per non
+// interferire con lo scroll della pagina quando si tocca un grafico piccolo inline
+function zoomPluginOptions(canvasId) {
+  if (canvasId !== 'chartModalCanvas') return undefined;
+  return {
+    pan: { enabled: true, mode: 'xy' },
+    zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
+  };
+}
+
 function drawSingleChart(p, points, canvasId) {
   canvasId = canvasId || ('and-canvas-' + p.key);
   const ctx = document.getElementById(canvasId);
@@ -1625,7 +1641,8 @@ function drawSingleChart(p, points, canvasId) {
             // mostra la nota del valore (se presente) sotto il numero, solo per la serie principale
             afterLabel: (ctx) => (ctx.datasetIndex === 0 && points[ctx.dataIndex].nota) ? '📝 ' + points[ctx.dataIndex].nota : undefined
           }
-        }
+        },
+        zoom: zoomPluginOptions(canvasId)
       },
       scales: {
         x: { type: 'linear', ticks: { color: '#8a8f98', font: { size: 10 }, callback: dateTickFormat }, grid: { color: '#1c2028' } },
@@ -1745,7 +1762,8 @@ function drawCompareChart(params, series, canvasId) {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { labels: { color: '#c7cad1', font: { size: 10 } } },
-        tooltip: { callbacks: { title: (items) => dateTickFormat(items[0].parsed.x) } }
+        tooltip: { callbacks: { title: (items) => dateTickFormat(items[0].parsed.x) } },
+        zoom: zoomPluginOptions(canvasId)
       },
       scales
     }
@@ -1768,6 +1786,10 @@ function closeChartModal() {
 }
 
 document.getElementById('chartModalClose').addEventListener('click', closeChartModal);
+document.getElementById('chartModalResetZoom').addEventListener('click', () => {
+  const inst = chartInstances['chartModalCanvas'];
+  if (inst && inst.resetZoom) inst.resetZoom();
+});
 document.getElementById('chartModal').addEventListener('click', (e) => {
   if (e.target.id === 'chartModal') closeChartModal();
 });
