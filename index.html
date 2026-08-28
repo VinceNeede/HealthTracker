@@ -68,12 +68,23 @@
   select { appearance: none; }
   .exam-row {
     display: grid;
-    grid-template-columns: 1fr 70px 90px 26px;
+    grid-template-columns: 1fr 70px 90px 22px 22px;
     gap: 6px;
     align-items: center;
     margin-bottom: 6px;
   }
   .exam-name { font-size: 0.8rem; color: #d8dae0; }
+  .note-toggle {
+    cursor: pointer; text-align: center; font-size: 0.9rem;
+    opacity: 0.4; filter: grayscale(1);
+  }
+  .note-toggle.has-note { opacity: 1; filter: none; }
+  .note-wrap { margin: -2px 0 8px; }
+  .note-wrap textarea {
+    width: 100%; box-sizing: border-box; resize: vertical;
+    background: #12151c; border: 1px solid #2a2f3a; border-radius: 8px;
+    color: #fff; padding: 6px 8px; font-size: 0.78rem; font-family: inherit;
+  }
   .remove-btn {
     color: #6f7684;
     font-size: 1rem;
@@ -146,6 +157,12 @@
     border-bottom: 1px solid #1c2028;
   }
   .val-row .flag { color: #e0a458; font-weight: 600; }
+  .val-row:has(+ .val-note) { border-bottom: none; }
+  .val-note {
+    font-size: 0.7rem; color: #8a8f98; font-style: italic;
+    padding: 0 0 6px; border-bottom: 1px solid #1c2028;
+    white-space: pre-wrap; word-break: break-word;
+  }
   .empty { color: #6a7280; font-size: 0.82rem; text-align: center; padding: 30px 0; }
   .top-actions { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   .storage-status {
@@ -793,7 +810,7 @@ function renderForm(existing) {
   if (existing) {
     currentExtraRows = existing.valori
       .filter(v => !byKey[v.paramKey] || !byKey[v.paramKey].pinned)
-      .map(v => ({ paramKey: v.paramKey, valore: v.valore, unit: v.unit }));
+      .map(v => ({ paramKey: v.paramKey, valore: v.valore, unit: v.unit, nota: v.nota || '' }));
   } else {
     currentExtraRows = [];
   }
@@ -819,6 +836,7 @@ function renderForm(existing) {
       <div class="section-title">Emocromo (campi standard)</div>
       ${PINNED.map(p => {
         const existingVal = existing ? existing.valori.find(v => v.paramKey === p.key) : null;
+        const nota = existingVal ? (existingVal.nota || '') : '';
         return `
         <div class="exam-row">
           <div class="exam-name">${p.nome}</div>
@@ -826,7 +844,11 @@ function renderForm(existing) {
           <select id="unit_${p.key}">
             ${p.units.map(u => `<option value="${u}" ${u === (existingVal ? existingVal.unit : p.unit) ? 'selected' : ''}>${u}</option>`).join('')}
           </select>
+          <div class="note-toggle ${nota ? 'has-note' : ''}" data-notekey="${p.key}" title="Nota su questo valore">📝</div>
           <div></div>
+        </div>
+        <div class="note-wrap" id="notewrap_${p.key}" style="display:${nota ? 'block' : 'none'};">
+          <textarea id="note_${p.key}" placeholder="Nota su questo valore (es. iniziata cura, sintomi, contesto...)" rows="2">${nota}</textarea>
         </div>
       `;
       }).join('')}
@@ -854,6 +876,15 @@ function renderForm(existing) {
     document.getElementById('formArea').innerHTML = '';
   };
   document.getElementById('saveForm').onclick = onSave;
+
+  // delegazione sul form intero: copre sia le note dei campi fissi (statiche) sia
+  // quelle degli "altri esami" (ri-renderizzate ad ogni aggiunta/rimozione riga)
+  document.getElementById('formCard').addEventListener('click', (e) => {
+    const toggle = e.target.closest('.note-toggle');
+    if (!toggle) return;
+    const wrap = document.getElementById('notewrap_' + toggle.dataset.notekey);
+    if (wrap) wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+  });
 
   // default oggi, oppure la data del referto in modifica
   populateDateSelects(existing ? existing.data : new Date().toISOString().slice(0,10));
@@ -883,7 +914,7 @@ function setupExamSearch() {
 
   function selectItem(item) {
     const p = byKey[item.dataset.key];
-    currentExtraRows.push({ paramKey: p.key, valore: '', unit: p.unit });
+    currentExtraRows.push({ paramKey: p.key, valore: '', unit: p.unit, nota: '' });
     input.value = '';
     results.style.display = 'none';
     activeIndex = -1;
@@ -985,7 +1016,11 @@ function renderExtraRows() {
         <select data-idx="${i}" class="extraUnit">
           ${p.units.map(u => `<option value="${u}" ${u===r.unit?'selected':''}>${u}</option>`).join('')}
         </select>
+        <div class="note-toggle ${r.nota ? 'has-note' : ''}" data-notekey="extra_${i}" title="Nota su questo valore">📝</div>
         <div class="remove-btn" data-idx="${i}">✕</div>
+      </div>
+      <div class="note-wrap" id="notewrap_extra_${i}" style="display:${r.nota ? 'block' : 'none'};">
+        <textarea data-idx="${i}" class="extraNota" placeholder="Nota su questo valore (es. iniziata cura, sintomi, contesto...)" rows="2">${r.nota || ''}</textarea>
       </div>
     `;
   }).join('');
@@ -993,6 +1028,11 @@ function renderExtraRows() {
   el.querySelectorAll('.extraVal').forEach(inp => {
     inp.addEventListener('input', e => {
       currentExtraRows[e.target.dataset.idx].valore = e.target.value;
+    });
+  });
+  el.querySelectorAll('.extraNota').forEach(ta => {
+    ta.addEventListener('input', e => {
+      currentExtraRows[e.target.dataset.idx].nota = e.target.value;
     });
   });
   el.querySelectorAll('.extraUnit').forEach(sel => {
@@ -1018,12 +1058,17 @@ async function onSave() {
     const v = document.getElementById('pin_' + p.key).value;
     if (v !== '') {
       const unit = document.getElementById('unit_' + p.key).value;
-      valori.push({ paramKey: p.key, valore: parseFloat(v), unit });
+      const nota = document.getElementById('note_' + p.key).value.trim();
+      const entry = { paramKey: p.key, valore: parseFloat(v), unit };
+      if (nota) entry.nota = nota;
+      valori.push(entry);
     }
   });
   currentExtraRows.forEach(r => {
     if (r.valore !== '') {
-      valori.push({ paramKey: r.paramKey, valore: parseFloat(r.valore), unit: r.unit });
+      const entry = { paramKey: r.paramKey, valore: parseFloat(r.valore), unit: r.unit };
+      if (r.nota && r.nota.trim()) entry.nota = r.nota.trim();
+      valori.push(entry);
     }
   });
 
@@ -1076,7 +1121,8 @@ async function renderList() {
           ${r.valori.map(v => {
             const p = byKey[v.paramKey];
             const flagged = p ? isFlagged(toCanonical(p, v.valore, v.unit), getRange(p).min, getRange(p).max) : false;
-            return `<div class="val-row"><span>${p ? p.nome : v.paramKey}</span><span class="${flagged ? 'flag' : ''}">${v.valore} ${v.unit}</span></div>`;
+            return `<div class="val-row"><span>${p ? p.nome : v.paramKey}</span><span class="${flagged ? 'flag' : ''}">${v.valore} ${v.unit}</span></div>`
+              + (v.nota ? `<div class="val-note">📝 ${v.nota}</div>` : '');
           }).join('')}
           <div style="text-align:right; margin-top:8px;">
             <button class="btn secondary small" data-editid="${r.id}">Modifica</button>
@@ -1229,7 +1275,7 @@ async function buildSeries() {
       if (!p) return;
       const val = toCanonical(p, v.valore, v.unit);
       if (!series[v.paramKey]) series[v.paramKey] = [];
-      series[v.paramKey].push({ date: r.data, value: val });
+      series[v.paramKey].push({ date: r.data, value: val, nota: v.nota || '' });
     });
   });
   return series;
@@ -1456,6 +1502,7 @@ function drawSingleChart(p, points, canvasId) {
   const values = points.map(pt => pt.value);
   const range = getRange(p);
   const pointColors = values.map(v => isFlaggedVal(v, range.min, range.max) ? '#e0a458' : '#5b9dff');
+  const pointRadii = points.map(pt => pt.nota ? 7 : 5); // punti con nota leggermente più grandi, per farli notare
 
   chartInstances[canvasId] = new Chart(ctx, {
     type: 'line',
@@ -1469,7 +1516,7 @@ function drawSingleChart(p, points, canvasId) {
           backgroundColor: '#5b9dff',
           pointBackgroundColor: pointColors,
           pointBorderColor: pointColors,
-          pointRadius: 5,
+          pointRadius: pointRadii,
           tension: 0.25
         },
         {
@@ -1484,7 +1531,15 @@ function drawSingleChart(p, points, canvasId) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            // mostra la nota del valore (se presente) sotto il numero, solo per la serie principale
+            afterLabel: (ctx) => (ctx.datasetIndex === 0 && points[ctx.dataIndex].nota) ? '📝 ' + points[ctx.dataIndex].nota : undefined
+          }
+        }
+      },
       scales: {
         x: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } },
         y: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } }
