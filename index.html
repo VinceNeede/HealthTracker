@@ -1531,7 +1531,7 @@ document.getElementById('driveConnectBtn').addEventListener('click', () => {
     setDriveStatus('Client Google non ancora pronto, riprova tra poco', 'error');
     return;
   }
-  driveSync.tokenClient.requestAccessToken({ prompt: driveSync.connected ? '' : 'consent' });
+  driveSync.tokenClient.requestAccessToken({ prompt: 'select_account consent' });
 });
 
 // ---------------- Registrazione service worker (per installabilità PWA e uso offline) ----------------
