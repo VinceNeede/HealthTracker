@@ -434,6 +434,7 @@ const PARAM_DICT = [
   { key: "magnesio", nome: "Magnesio", cat: "Elettroliti", unit: "mg/dL", units: ["mg/dL","mmol/L"], unitFactors: {"mg/dL":1, "mmol/L":2.43}, min: 1.6, max: 2.6, alias: "magnesio mg", defaultIntervalMonths: 12 },
   { key: "vitd", nome: "Vitamina D (25-OH)", cat: "Vitamine", unit: "ng/mL", units: ["ng/mL"], min: 30, max: 100, alias: "vitamina d 25-oh colecalciferolo", defaultIntervalMonths: 12 },
   { key: "b12", nome: "Vitamina B12", cat: "Vitamine", unit: "pg/mL", units: ["pg/mL"], min: 197, max: 771, alias: "vitamina b12 cobalamina", defaultIntervalMonths: 12 },
+  { key: "folati", nome: "Acido folico (Vitamina B9)", cat: "Vitamine", unit: "ng/mL", units: ["ng/mL"], min: 3.1, max: 17.5, alias: "acido folico folati vitamina b9 folacina", defaultIntervalMonths: 12 },
 
   // Endocrino / Terapia
   { key: "tsh", nome: "TSH", cat: "Endocrino", unit: "uUI/mL", units: ["uUI/mL"], min: 0.35, max: 4.20, alias: "tsh tireotropina tiroide", defaultIntervalMonths: 12 },
@@ -1006,8 +1007,8 @@ async function renderOverdueBanner() {
   if (overdue.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = `
     <div class="overdue-banner">
-      <span>⏰ ${overdue.length} esame${overdue.length > 1 ? 'i' : ''} da ricontrollare:</span>
-      ${overdue.map(o => `<span class="overdue-chip">${o.param.nome} (${formatElapsed(o.daysSince)})</span>`).join('')}
+      <span>⏰ ${overdue.length} esame${overdue.length > 1 ? 'i' : ''} da (ri)controllare:</span>
+      ${overdue.map(o => `<span class="overdue-chip">${o.param.nome} (${o.neverDone ? 'mai fatto' : formatElapsed(o.daysSince)})</span>`).join('')}
     </div>
   `;
 }
@@ -1115,23 +1116,30 @@ function formatElapsed(days) {
 }
 
 // elenco degli esami con un promemoria attivo (default o override) scaduto,
-// cioè il cui ultimo referto risale a più dell'intervallo effettivo fa
+// cioè il cui ultimo referto risale a più dell'intervallo effettivo fa —
+// include anche gli esami con promemoria attivo mai inseriti (neverDone)
 async function getOverdueParams() {
   const series = await buildSeries();
   const overrides = await getIntervalOverrides();
   const now = Date.now();
   const overdue = [];
   for (const p of PARAM_DICT) {
-    const pts = series[p.key];
-    if (!pts || pts.length === 0) continue;
     const months = effectiveIntervalMonths(p, overrides);
     if (!months) continue; // null o 0 = nessun promemoria
+    const pts = series[p.key];
+    if (!pts || pts.length === 0) {
+      overdue.push({ param: p, neverDone: true });
+      continue;
+    }
     const last = pts[pts.length - 1];
     const daysSince = Math.floor((now - new Date(last.date).getTime()) / 86400000);
     const intervalDays = Math.round(months * 30.44);
-    if (daysSince > intervalDays) overdue.push({ param: p, daysSince });
+    if (daysSince > intervalDays) overdue.push({ param: p, daysSince, neverDone: false });
   }
-  return overdue.sort((a, b) => b.daysSince - a.daysSince);
+  return overdue.sort((a, b) => {
+    if (a.neverDone !== b.neverDone) return a.neverDone ? -1 : 1; // mai fatti in cima
+    return a.neverDone ? a.param.nome.localeCompare(b.param.nome) : b.daysSince - a.daysSince;
+  });
 }
 
 let compareSet = new Set(); // paramKey selezionati per il confronto
