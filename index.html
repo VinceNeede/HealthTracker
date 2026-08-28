@@ -419,6 +419,7 @@ const PARAM_DICT = [
   { key: "mch", nome: "MCH", cat: "Emocromo", unit: "pg", units: ["pg"], min: 26.0, max: 33.0, pinned: false, defaultIntervalMonths: 12 },
   { key: "mchc", nome: "MCHC", cat: "Emocromo", unit: "g/dL", units: ["g/dL"], min: 31.0, max: 36.0, pinned: false, defaultIntervalMonths: 12 },
   { key: "mpv", nome: "MPV", cat: "Emocromo", unit: "fL", units: ["fL"], min: 6.90, max: 10.6, pinned: true, defaultIntervalMonths: 12 },
+  { key: "rdw", nome: "RDW (distribuzione volume eritrocitario)", cat: "Emocromo", unit: "%", units: ["%"], min: 11.5, max: 14.5, pinned: false, alias: "rdw distribuzione ampiezza volume eritrocitario globuli rossi", defaultIntervalMonths: 12 },
   { key: "plt", nome: "Piastrine (PLT)", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 130, max: 400, pinned: true, defaultIntervalMonths: 12 },
 
   // Fegato
@@ -445,7 +446,7 @@ const PARAM_DICT = [
   { key: "sodio", nome: "Sodio", cat: "Elettroliti", unit: "mEq/L", units: ["mEq/L","mmol/L"], unitFactors: {"mEq/L":1, "mmol/L":1}, min: 136, max: 145, alias: "sodio na elettroliti", defaultIntervalMonths: 12 },
   { key: "potassio", nome: "Potassio", cat: "Elettroliti", unit: "mEq/L", units: ["mEq/L","mmol/L"], unitFactors: {"mEq/L":1, "mmol/L":1}, min: 3.5, max: 5.1, alias: "potassio k elettroliti", defaultIntervalMonths: 12 },
   { key: "magnesio", nome: "Magnesio", cat: "Elettroliti", unit: "mg/dL", units: ["mg/dL","mmol/L"], unitFactors: {"mg/dL":1, "mmol/L":2.43}, min: 1.6, max: 2.6, alias: "magnesio mg", defaultIntervalMonths: 12 },
-  { key: "vitd", nome: "Vitamina D (25-OH)", cat: "Vitamine", unit: "ng/mL", units: ["ng/mL"], min: 30, max: 100, alias: "vitamina d 25-oh colecalciferolo", defaultIntervalMonths: 12 },
+  { key: "vitd", nome: "Vitamina D (25-OH)", cat: "Vitamine", unit: "ng/mL", units: ["ng/mL","nmol/L"], unitFactors: {"ng/mL":1, "nmol/L":0.4006}, min: 30, max: 100, alias: "vitamina d 25-oh colecalciferolo", defaultIntervalMonths: 12 },
   { key: "b12", nome: "Vitamina B12", cat: "Vitamine", unit: "pg/mL", units: ["pg/mL"], min: 197, max: 771, alias: "vitamina b12 cobalamina", defaultIntervalMonths: 12 },
   { key: "folati", nome: "Acido folico (Vitamina B9)", cat: "Vitamine", unit: "ng/mL", units: ["ng/mL"], min: 3.1, max: 17.5, alias: "acido folico folati vitamina b9 folacina", defaultIntervalMonths: 12 },
 
