@@ -30,8 +30,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
 
-  // ignora richieste non http/https (es. chrome-extension://), la Cache API non le supporta
+  // ignora richieste non http/https (es. chrome-extension://) e non GET
+  // (la Cache API supporta solo richieste GET, es. le PATCH verso l'API Drive vanno escluse)
   if (!url.startsWith('http://') && !url.startsWith('https://')) return;
+  if (event.request.method !== 'GET') return;
 
   const isSameOrigin = url.startsWith(self.location.origin);
 
