@@ -360,6 +360,15 @@
   <span id="driveStatus" class="drive-status"></span>
 </div>
 
+<div class="drive-bar" style="margin-top:6px;">
+  <label for="sessoSelect" style="font-size:0.72rem; color:#8a8f98;">Sesso (per i range di riferimento):</label>
+  <select id="sessoSelect" style="background:#12151c; border:1px solid #2a2f3a; border-radius:6px; color:#fff; padding:3px 6px; font-size:0.78rem;">
+    <option value="">Non specificato</option>
+    <option value="M">Uomo</option>
+    <option value="F">Donna</option>
+  </select>
+</div>
+
 <div class="view-tabs">
   <div class="view-tab active" data-view="referti">Referti</div>
   <div class="view-tab" data-view="andamento">Andamento</div>
@@ -412,9 +421,9 @@ const PARAM_DICT = [
   { key: "eos_perc", nome: "Eosinofili %", cat: "Emocromo", unit: "%", units: ["%"], min: 0.6, max: 7.3, pinned: true, defaultIntervalMonths: 12 },
   { key: "baso_ass", nome: "Basofili #", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 0.0, max: 0.2, pinned: true, defaultIntervalMonths: 12 },
   { key: "baso_perc", nome: "Basofili %", cat: "Emocromo", unit: "%", units: ["%"], min: 0.0, max: 2.0, pinned: true, defaultIntervalMonths: 12 },
-  { key: "rbc", nome: "Globuli rossi (RBC)", cat: "Emocromo", unit: "10^6/uL", units: ["10^6/uL","/mmc"], unitFactors: {"10^6/uL":1, "/mmc":0.000001}, min: 4.00, max: 6.01, pinned: true, defaultIntervalMonths: 12 },
-  { key: "hgb", nome: "Emoglobina (HGB)", cat: "Emocromo", unit: "g/dL", units: ["g/dL","g/L"], unitFactors: {"g/dL":1, "g/L":0.1}, min: 12.0, max: 18.0, pinned: true, defaultIntervalMonths: 12 },
-  { key: "hct", nome: "Ematocrito (HCT)", cat: "Emocromo", unit: "%", units: ["%"], min: 37.0, max: 53.7, pinned: true, defaultIntervalMonths: 12 },
+  { key: "rbc", nome: "Globuli rossi (RBC)", cat: "Emocromo", unit: "10^6/uL", units: ["10^6/uL","/mmc"], unitFactors: {"10^6/uL":1, "/mmc":0.000001}, min: 4.00, max: 5.9, rangeBySex: { M: { min: 4.5, max: 5.9 }, F: { min: 4.0, max: 5.2 } }, pinned: true, defaultIntervalMonths: 12 },
+  { key: "hgb", nome: "Emoglobina (HGB)", cat: "Emocromo", unit: "g/dL", units: ["g/dL","g/L"], unitFactors: {"g/dL":1, "g/L":0.1}, min: 12.0, max: 17.5, rangeBySex: { M: { min: 13.5, max: 17.5 }, F: { min: 12.0, max: 16.0 } }, pinned: true, defaultIntervalMonths: 12 },
+  { key: "hct", nome: "Ematocrito (HCT)", cat: "Emocromo", unit: "%", units: ["%"], min: 35.0, max: 50.0, rangeBySex: { M: { min: 39.0, max: 50.0 }, F: { min: 35.0, max: 45.0 } }, pinned: true, defaultIntervalMonths: 12 },
   { key: "mcv", nome: "MCV", cat: "Emocromo", unit: "fL", units: ["fL"], min: 81.1, max: 96.0, pinned: true, defaultIntervalMonths: 12 },
   { key: "mch", nome: "MCH", cat: "Emocromo", unit: "pg", units: ["pg"], min: 26.0, max: 33.0, pinned: false, defaultIntervalMonths: 12 },
   { key: "mchc", nome: "MCHC", cat: "Emocromo", unit: "g/dL", units: ["g/dL"], min: 31.0, max: 36.0, pinned: false, defaultIntervalMonths: 12 },
@@ -431,7 +440,7 @@ const PARAM_DICT = [
   { key: "bili_ind", nome: "Bilirubina indiretta", cat: "Fegato", unit: "mg/dL", units: ["mg/dL"], min: 0, max: 0.70, alias: "bilirubina indiretta non coniugata", defaultIntervalMonths: 12 },
 
   // Reni / Metabolico
-  { key: "creat", nome: "Creatinina", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 0.64, max: 1.27, alias: "creatinina funzione renale", defaultIntervalMonths: 12 },
+  { key: "creat", nome: "Creatinina", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 0.50, max: 1.20, rangeBySex: { M: { min: 0.70, max: 1.20 }, F: { min: 0.50, max: 1.00 } }, alias: "creatinina funzione renale", defaultIntervalMonths: 12 },
   { key: "azot", nome: "Azotemia", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 10, max: 50, alias: "azotemia urea bun", defaultIntervalMonths: 12 },
   { key: "glic", nome: "Glicemia", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 65, max: 110, alias: "glicemia glucosio zucchero", defaultIntervalMonths: 12 },
   { key: "colest", nome: "Colesterolo totale", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 0, max: 200, alias: "colesterolo totale ldl hdl", defaultIntervalMonths: 60 },
@@ -439,8 +448,8 @@ const PARAM_DICT = [
   { key: "prot_tot", nome: "Proteine totali", cat: "Reni / Metabolico", unit: "g/dL", units: ["g/dL"], min: 6.0, max: 8.2, alias: "proteine totali", defaultIntervalMonths: 12 },
 
   // Ferro
-  { key: "sider", nome: "Sideremia", cat: "Ferro", unit: "ug/dL", units: ["ug/dL","umol/L"], unitFactors: {"ug/dL":1, "umol/L":5.585}, min: 35, max: 182, alias: "sideremia ferro sierico iron", defaultIntervalMonths: 12 },
-  { key: "ferrit", nome: "Ferritina", cat: "Ferro", unit: "ng/mL", units: ["ng/mL"], min: 30, max: 300, alias: "ferritina riserve ferro", defaultIntervalMonths: 12 },
+  { key: "sider", nome: "Sideremia", cat: "Ferro", unit: "ug/dL", units: ["ug/dL","umol/L"], unitFactors: {"ug/dL":1, "umol/L":5.585}, min: 50, max: 175, rangeBySex: { M: { min: 65, max: 175 }, F: { min: 50, max: 170 } }, alias: "sideremia ferro sierico iron", defaultIntervalMonths: 12 },
+  { key: "ferrit", nome: "Ferritina", cat: "Ferro", unit: "ng/mL", units: ["ng/mL"], min: 13, max: 300, rangeBySex: { M: { min: 30, max: 300 }, F: { min: 13, max: 150 } }, alias: "ferritina riserve ferro", defaultIntervalMonths: 12 },
 
   // Elettroliti / Vitamine
   { key: "sodio", nome: "Sodio", cat: "Elettroliti", unit: "mEq/L", units: ["mEq/L","mmol/L"], unitFactors: {"mEq/L":1, "mmol/L":1}, min: 136, max: 145, alias: "sodio na elettroliti", defaultIntervalMonths: 12 },
@@ -575,6 +584,31 @@ function effectiveIntervalMonths(param, overrides) {
   return param.defaultIntervalMonths;
 }
 
+// sesso dell'utente, usato per scegliere il range di riferimento corretto nei
+// parametri che lo prevedono ('M'/'F'/null) — variabile globale così le funzioni
+// sincrone che disegnano range/grafici possono leggerla senza diventare async
+let currentSesso = null;
+
+async function getSesso() {
+  return (await getMeta('sesso')) || null;
+}
+
+async function setSesso(sesso) {
+  await setMeta('sesso', sesso);
+  currentSesso = sesso;
+  await touchUpdated();
+  scheduleDriveSync();
+}
+
+// risolve il range effettivo per il parametro in base al sesso corrente; senza
+// sesso impostato, o senza differenza nota per quel parametro, usa il range unisex
+function getRange(param) {
+  if (param.rangeBySex && currentSesso && param.rangeBySex[currentSesso]) {
+    return param.rangeBySex[currentSesso];
+  }
+  return { min: param.min, max: param.max };
+}
+
 // segna "adesso" come ultima modifica locale — usato dalla sincronizzazione per il last-write-wins
 async function touchUpdated() {
   const ts = Date.now();
@@ -596,6 +630,9 @@ async function clearAllLocalData() {
   await replaceAllLocalReferti([]);
   await setMeta('updatedAt', 0);
   await setMeta('intervalOverrides', {});
+  await setMeta('sesso', null);
+  currentSesso = null;
+  document.getElementById('sessoSelect').value = '';
 }
 
 async function saveReferto(referto) {
@@ -988,7 +1025,7 @@ async function renderList() {
         <div class="referto-detail" style="display:none" id="detail-${r.id}">
           ${r.valori.map(v => {
             const p = byKey[v.paramKey];
-            const flagged = p ? isFlagged(toCanonical(p, v.valore, v.unit), p.min, p.max) : false;
+            const flagged = p ? isFlagged(toCanonical(p, v.valore, v.unit), getRange(p).min, getRange(p).max) : false;
             return `<div class="val-row"><span>${p ? p.nome : v.paramKey}</span><span class="${flagged ? 'flag' : ''}">${v.valore} ${v.unit}</span></div>`;
           }).join('')}
           <div style="text-align:right; margin-top:8px;">
@@ -1224,7 +1261,8 @@ async function renderAndamento() {
     paramsWithData.filter(p => p.cat === cat).forEach(p => {
       const pts = series[p.key];
       const last = pts[pts.length - 1];
-      const flagged = isFlaggedVal(last.value, p.min, p.max);
+      const range = getRange(p);
+      const flagged = isFlaggedVal(last.value, range.min, range.max);
       const isSelected = compareSet.has(p.key);
 
       const months = effectiveIntervalMonths(p, overrides);
@@ -1239,7 +1277,7 @@ async function renderAndamento() {
         <div class="and-pname">${p.nome}</div>
         <div class="and-pval" data-open="${p.key}">${roundSmart(last.value)}<span class="unit">${p.unit}</span></div>
         <div class="and-pmeta">
-          <span class="and-prange">rif. ${p.min}-${p.max}</span>
+          <span class="and-prange">rif. ${range.min}-${range.max}</span>
           ${flagged ? '<span class="and-pflag">fuori range</span>' : ''}
           ${overdue ? `<span class="and-pflag overdue">controllo scaduto da ${formatElapsed(daysSince)}</span>` : ''}
         </div>
@@ -1260,7 +1298,7 @@ async function renderAndamento() {
               <span class="close-btn" id="and-close-${p.key}" style="cursor:pointer; color:#8a8f98; font-size:0.72rem; padding:3px 8px; border:1px solid #2a2f3a; border-radius:20px;">chiudi ✕</span>
             </div>
           </div>
-          <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px;">Range di riferimento: ${p.min} – ${p.max} ${p.unit}</div>
+          <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px;">Range di riferimento: ${range.min} – ${range.max} ${p.unit}</div>
           <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span>Promemoria controllo ogni</span>
             <input type="number" min="1" step="1" id="and-interval-${p.key}" value="${months || ''}" ${isOff ? 'disabled' : ''} style="width:56px; background:#12151c; border:1px solid #2a2f3a; border-radius:6px; color:#fff; padding:3px 6px;">
@@ -1366,7 +1404,8 @@ function drawSingleChart(p, points, canvasId) {
 
   const labels = points.map(pt => new Date(pt.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' }));
   const values = points.map(pt => pt.value);
-  const pointColors = values.map(v => isFlaggedVal(v, p.min, p.max) ? '#e0a458' : '#5b9dff');
+  const range = getRange(p);
+  const pointColors = values.map(v => isFlaggedVal(v, range.min, range.max) ? '#e0a458' : '#5b9dff');
 
   chartInstances[canvasId] = new Chart(ctx, {
     type: 'line',
@@ -1384,11 +1423,11 @@ function drawSingleChart(p, points, canvasId) {
           tension: 0.25
         },
         {
-          label: 'min', data: labels.map(() => p.min),
+          label: 'min', data: labels.map(() => range.min),
           borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1
         },
         {
-          label: 'max', data: labels.map(() => p.max),
+          label: 'max', data: labels.map(() => range.max),
           borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1
         }
       ]
@@ -1725,6 +1764,11 @@ async function performDriveSync() {
       if (remote.settings && remote.settings.intervalOverrides) {
         await setMeta('intervalOverrides', remote.settings.intervalOverrides);
       }
+      if (remote.settings && 'sesso' in remote.settings) {
+        await setMeta('sesso', remote.settings.sesso);
+        currentSesso = remote.settings.sesso;
+        document.getElementById('sessoSelect').value = currentSesso || '';
+      }
       await setMeta('updatedAt', remoteUpdatedAt);
       await renderList();
       const andView = document.getElementById('view-andamento');
@@ -1735,7 +1779,7 @@ async function performDriveSync() {
       const referti = await loadAllReferti();
       const intervalOverrides = await getIntervalOverrides();
       const ts = localUpdatedAt || Date.now();
-      await driveUpload(driveSync.fileId, { referti, updatedAt: ts, settings: { intervalOverrides } });
+      await driveUpload(driveSync.fileId, { referti, updatedAt: ts, settings: { intervalOverrides, sesso: currentSesso } });
       if (!localUpdatedAt) await setMeta('updatedAt', ts);
       setDriveStatus('Sincronizzato · ' + new Date(ts).toLocaleTimeString('it-IT'), 'ok');
     }
@@ -1792,6 +1836,13 @@ document.getElementById('driveDisconnectBtn').addEventListener('click', async ()
   setDriveStatus('Disconnesso. Pronto per un altro account.', '');
 });
 
+document.getElementById('sessoSelect').addEventListener('change', async (e) => {
+  await setSesso(e.target.value || null);
+  await renderList();
+  const andView = document.getElementById('view-andamento');
+  if (andView && andView.style.display !== 'none') await renderAndamento();
+});
+
 // ---------------- Registrazione service worker (per installabilità PWA e uso offline) ----------------
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -1804,6 +1855,8 @@ if ('serviceWorker' in navigator) {
 (async function init() {
   await initStorage();
   renderStorageStatus();
+  currentSesso = await getSesso();
+  document.getElementById('sessoSelect').value = currentSesso || '';
   await renderList();
   initDriveClient();
 })();
