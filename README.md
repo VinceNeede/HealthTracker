@@ -99,4 +99,3 @@ Questa app non ha alcun server proprio: i dati restano o sul tuo dispositivo
 (IndexedDB) o nel tuo account Google Drive personale (permesso limitato ai
 soli file creati dall'app stessa, tramite lo scope `drive.file` — l'app non
 può vedere il resto del tuo Drive). Nessun dato passa mai da un server terzo.
-# HealthTracker
