@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Tracciamento Analisi</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e1015">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Analisi">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0e1015;
+    color: #e8e8ea;
+    padding: 14px 14px 60px;
+  }
+  h1 { font-size: 1.2rem; margin: 0 0 2px 0; color: #fff; }
+  .subtitle { color: #82868f; font-size: 0.8rem; margin-bottom: 14px; }
+  .btn {
+    display: inline-block;
+    background: #3a6bd8;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn.secondary { background: #232833; color: #c7cad1; }
+  .btn.danger { background: #3a1f1c; color: #ff8a7a; }
+  .btn.small { padding: 5px 10px; font-size: 0.72rem; border-radius: 8px; }
+  .card {
+    background: #171a21;
+    border: 1px solid #262a33;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  label { font-size: 0.76rem; color: #9aa1ad; display: block; margin-bottom: 3px; }
+  input[type=text], input[type=number], input[type=date], select {
+    width: 100%;
+    background: #0f1219;
+    border: 1px solid #2a2f3a;
+    color: #e8e8ea;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+  select { appearance: none; }
+  .exam-row {
+    display: grid;
+    grid-template-columns: 1fr 70px 90px 26px;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .exam-name { font-size: 0.8rem; color: #d8dae0; }
+  .remove-btn {
+    color: #6f7684;
+    font-size: 1rem;
+    text-align: center;
+    cursor: pointer;
+  }
+  .section-title {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6a7280;
+    margin: 14px 0 8px;
+  }
+  .add-exam-wrap { position: relative; margin-top: 8px; }
+  .add-exam-results {
+    display: none;
+    position: relative;
+    margin-top: 4px;
+    background: #12151c;
+    border: 1px solid #2a2f3a;
+    border-radius: 10px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .result-group { padding: 4px 0; }
+  .result-cat {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #565c68;
+    padding: 6px 12px 2px;
+  }
+  .result-item {
+    padding: 9px 12px;
+    font-size: 0.83rem;
+    color: #d8dae0;
+    cursor: pointer;
+    border-bottom: 1px solid #1a1e26;
+  }
+  .result-item:active { background: #1e2430; }
+  .result-item.active { background: #1e2f4a; color: #fff; }
+  .no-results {
+    padding: 12px;
+    font-size: 0.78rem;
+    color: #6a7280;
+    text-align: center;
+  }
+  .referto-card {
+    background: #171a21;
+    border: 1px solid #262a33;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .referto-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .referto-date { font-weight: 600; color: #fff; font-size: 0.9rem; }
+  .referto-lab { font-size: 0.72rem; color: #7d828d; }
+  .referto-count { font-size: 0.72rem; color: #6a7280; }
+  .referto-detail { margin-top: 10px; border-top: 1px solid #232833; padding-top: 8px; }
+  .val-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    padding: 4px 0;
+    border-bottom: 1px solid #1c2028;
+  }
+  .val-row .flag { color: #e0a458; font-weight: 600; }
+  .empty { color: #6a7280; font-size: 0.82rem; text-align: center; padding: 30px 0; }
+  .top-actions { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .storage-status {
+    font-size: 0.7rem;
+    color: #6a7280;
+    margin-bottom: 14px;
+    padding: 6px 10px;
+    background: #14161c;
+    border-radius: 8px;
+    display: inline-block;
+  }
+  .storage-status.warn { color: #e0c458; background: #22200f; }
+
+  .drive-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .drive-status {
+    font-size: 0.72rem;
+    color: #6a7280;
+  }
+  .drive-status.ok { color: #7ed6a5; }
+  .drive-status.syncing { color: #7db4ff; }
+  .drive-status.error { color: #ff8a7a; }
+  .close-form { text-align: right; margin-top: 10px; }
+  .editing-badge {
+    font-size: 0.72rem;
+    color: #7db4ff;
+    background: #10182a;
+    border: 1px solid #2a4a7a;
+    padding: 4px 10px;
+    border-radius: 8px;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+
+  /* --- Tabs --- */
+  .view-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #232833;
+  }
+  .view-tab {
+    padding: 8px 4px;
+    font-size: 0.85rem;
+    color: #7d828d;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-right: 14px;
+  }
+  .view-tab.active { color: #fff; border-bottom-color: #3a6bd8; font-weight: 600; }
+
+  /* --- Andamento: overview cards --- */
+  .and-group-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a7280;
+    margin: 18px 0 8px 2px;
+  }
+  .and-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .and-card {
+    background: #171a21;
+    border: 1px solid #262a33;
+    border-radius: 12px;
+    padding: 10px 12px;
+    position: relative;
+  }
+  .and-card.flagged { border-color: #6b4a26; background: #1d1811; }
+  .and-card.selected { border-color: #3a6bd8; }
+  .and-pname { font-size: 0.76rem; color: #b7bbc3; margin-bottom: 4px; padding-right: 20px; }
+  .and-pval { font-size: 1.1rem; font-weight: 600; color: #fff; cursor: pointer; }
+  .and-pval .unit { font-size: 0.65rem; color: #8a8f98; font-weight: 400; margin-left: 3px; }
+  .and-pmeta { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .and-prange { font-size: 0.65rem; color: #6f7684; }
+  .and-pflag {
+    font-size: 0.62rem; color: #e0a458; font-weight: 600;
+    background: #2a1f10; padding: 1px 6px; border-radius: 8px;
+  }
+  .and-compare-toggle {
+    position: absolute; top: 8px; right: 8px;
+    width: 20px; height: 20px;
+    border: 1px solid #3a3f4a;
+    border-radius: 5px;
+    color: #565c68;
+    font-size: 0.75rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .and-compare-toggle.on { background: #3a6bd8; border-color: #3a6bd8; color: #fff; }
+  .and-detail {
+    grid-column: 1 / -1;
+    background: #10131a;
+    border: 1px solid #2a3346;
+    border-radius: 12px;
+    padding: 14px;
+    margin: 2px 0 4px;
+  }
+  .and-detail canvas { max-height: 200px; }
+  .chart-fixed-height {
+    position: relative;
+    height: 220px;
+    width: 100%;
+  }
+  .chart-fixed-height canvas { max-height: 100% !important; }
+  .and-empty { color: #6a7280; font-size: 0.85rem; text-align: center; padding: 40px 10px; }
+
+  /* --- Barra di confronto --- */
+  .compare-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #14161c;
+    border: 1px solid #2a3346;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+  .compare-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .compare-chip {
+    font-size: 0.72rem;
+    background: #1e2a45;
+    color: #cfe0ff;
+    padding: 4px 8px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .compare-chip .x { cursor: pointer; color: #8fa9d6; }
+  .compare-chart-wrap { display: none; margin-top: 8px; }
+  .compare-chart-wrap.open { display: block; }
+  .compare-chart-wrap .chart-fixed-height { height: 250px; }
+
+  /* --- Modale grafico ingrandito --- */
+  .chart-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0a0b0e;
+    z-index: 1000;
+    padding: 16px;
+    flex-direction: column;
+  }
+  .chart-modal-overlay.open { display: flex; }
+  .chart-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-shrink: 0;
+  }
+  .chart-modal-title { font-size: 1rem; font-weight: 600; color: #fff; }
+  .chart-modal-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+  .chart-modal-body canvas { max-height: 100% !important; }
+  .expand-btn {
+    cursor: pointer;
+    color: #8a8f98;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border: 1px solid #2a2f3a;
+    border-radius: 20px;
+    margin-right: 6px;
+  }
+  .compare-note { font-size: 0.68rem; color: #6a7280; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<h1>Tracciamento Analisi</h1>
+<div class="subtitle">Le tue analisi, sincronizzate su Google Drive</div>
+
+<div id="driveBar" class="drive-bar">
+  <button class="btn secondary small" id="driveConnectBtn">🔗 Connetti Google Drive</button>
+  <span id="driveStatus" class="drive-status"></span>
+</div>
+
+<div class="view-tabs">
+  <div class="view-tab active" data-view="referti">Referti</div>
+  <div class="view-tab" data-view="andamento">Andamento</div>
+</div>
+
+<div id="view-referti">
+  <div class="top-actions">
+    <button class="btn" id="newReferto">+ Nuovo referto</button>
+    <button class="btn secondary small" id="exportBtn" style="align-self:center">⬇ Backup</button>
+    <label class="btn secondary small" style="align-self:center; margin:0;">
+      ⬆ Importa
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </label>
+  </div>
+  <div id="storageStatus" class="storage-status"></div>
+
+  <div id="formArea"></div>
+  <div class="section-title">Referti salvati</div>
+  <div id="listArea"></div>
+</div>
+
+<div id="view-andamento" style="display:none">
+  <div id="compareBar" class="compare-bar" style="display:none"></div>
+  <div id="andamentoArea"></div>
+</div>
+
+<div id="chartModal" class="chart-modal-overlay">
+  <div class="chart-modal-header">
+    <div id="chartModalTitle" class="chart-modal-title"></div>
+    <span id="chartModalClose" class="close-btn" style="cursor:pointer;">chiudi ✕</span>
+  </div>
+  <div class="chart-modal-body">
+    <canvas id="chartModalCanvas"></canvas>
+  </div>
+</div>
+
+<script>
+// ---------------- Dizionario canonico esami ----------------
+const PARAM_DICT = [
+  // Emocromo (pre-compilati)
+  { key: "wbc", nome: "Globuli bianchi (WBC)", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc","10^9/L"], unitFactors: {"10^3/uL":1, "/mmc":0.001, "10^9/L":1}, min: 4.00, max: 10.1, pinned: true },
+  { key: "neu_ass", nome: "Neutrofili #", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 1.90, max: 8.00, pinned: true },
+  { key: "neu_perc", nome: "Neutrofili %", cat: "Emocromo", unit: "%", units: ["%"], min: 39.3, max: 73.7, pinned: true },
+  { key: "lym_ass", nome: "Linfociti #", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 0.90, max: 5.00, pinned: true },
+  { key: "lym_perc", nome: "Linfociti %", cat: "Emocromo", unit: "%", units: ["%"], min: 18.0, max: 48.3, pinned: true },
+  { key: "mono_ass", nome: "Monociti #", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 0.16, max: 1.00, pinned: true },
+  { key: "mono_perc", nome: "Monociti %", cat: "Emocromo", unit: "%", units: ["%"], min: 2.0, max: 9.0, pinned: true },
+  { key: "eos_ass", nome: "Eosinofili #", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 0.0, max: 0.6, pinned: true },
+  { key: "eos_perc", nome: "Eosinofili %", cat: "Emocromo", unit: "%", units: ["%"], min: 0.6, max: 7.3, pinned: true },
+  { key: "baso_ass", nome: "Basofili #", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 0.0, max: 0.2, pinned: true },
+  { key: "baso_perc", nome: "Basofili %", cat: "Emocromo", unit: "%", units: ["%"], min: 0.0, max: 2.0, pinned: true },
+  { key: "rbc", nome: "Globuli rossi (RBC)", cat: "Emocromo", unit: "10^6/uL", units: ["10^6/uL","/mmc"], unitFactors: {"10^6/uL":1, "/mmc":0.000001}, min: 4.00, max: 6.01, pinned: true },
+  { key: "hgb", nome: "Emoglobina (HGB)", cat: "Emocromo", unit: "g/dL", units: ["g/dL","g/L"], unitFactors: {"g/dL":1, "g/L":0.1}, min: 12.0, max: 18.0, pinned: true },
+  { key: "hct", nome: "Ematocrito (HCT)", cat: "Emocromo", unit: "%", units: ["%"], min: 37.0, max: 53.7, pinned: true },
+  { key: "mcv", nome: "MCV", cat: "Emocromo", unit: "fL", units: ["fL"], min: 81.1, max: 96.0, pinned: true },
+  { key: "mch", nome: "MCH", cat: "Emocromo", unit: "pg", units: ["pg"], min: 26.0, max: 33.0, pinned: false },
+  { key: "mchc", nome: "MCHC", cat: "Emocromo", unit: "g/dL", units: ["g/dL"], min: 31.0, max: 36.0, pinned: false },
+  { key: "mpv", nome: "MPV", cat: "Emocromo", unit: "fL", units: ["fL"], min: 6.90, max: 10.6, pinned: true },
+  { key: "plt", nome: "Piastrine (PLT)", cat: "Emocromo", unit: "10^3/uL", units: ["10^3/uL","/mmc"], unitFactors: {"10^3/uL":1, "/mmc":0.001}, min: 130, max: 400, pinned: true },
+
+  // Fegato
+  { key: "alt", nome: "ALT (GPT)", cat: "Fegato", unit: "U/L", units: ["U/L"], min: 0, max: 45, alias: "alt gpt transaminasi" },
+  { key: "ast", nome: "AST (GOT)", cat: "Fegato", unit: "U/L", units: ["U/L"], min: 0, max: 41, alias: "ast got transaminasi" },
+  { key: "ggt", nome: "Gamma-GT", cat: "Fegato", unit: "U/L", units: ["U/L"], min: 7, max: 50, alias: "ggt gammagt gamma glutamil transferasi" },
+  { key: "bili_tot", nome: "Bilirubina totale", cat: "Fegato", unit: "mg/dL", units: ["mg/dL"], min: 0, max: 1.2, alias: "bilirubina totale bili tot" },
+  { key: "bili_dir", nome: "Bilirubina diretta", cat: "Fegato", unit: "mg/dL", units: ["mg/dL"], min: 0.10, max: 0.50, alias: "bilirubina diretta coniugata" },
+  { key: "bili_ind", nome: "Bilirubina indiretta", cat: "Fegato", unit: "mg/dL", units: ["mg/dL"], min: 0, max: 0.70, alias: "bilirubina indiretta non coniugata" },
+
+  // Reni / Metabolico
+  { key: "creat", nome: "Creatinina", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 0.64, max: 1.27, alias: "creatinina funzione renale" },
+  { key: "azot", nome: "Azotemia", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 10, max: 50, alias: "azotemia urea bun" },
+  { key: "glic", nome: "Glicemia", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 65, max: 110, alias: "glicemia glucosio zucchero" },
+  { key: "colest", nome: "Colesterolo totale", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 0, max: 200, alias: "colesterolo totale ldl hdl" },
+  { key: "trigli", nome: "Trigliceridi", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 50, max: 180, alias: "trigliceridi" },
+  { key: "prot_tot", nome: "Proteine totali", cat: "Reni / Metabolico", unit: "g/dL", units: ["g/dL"], min: 6.0, max: 8.2, alias: "proteine totali" },
+
+  // Ferro
+  { key: "sider", nome: "Sideremia", cat: "Ferro", unit: "ug/dL", units: ["ug/dL","umol/L"], unitFactors: {"ug/dL":1, "umol/L":5.585}, min: 35, max: 182, alias: "sideremia ferro sierico iron" },
+  { key: "ferrit", nome: "Ferritina", cat: "Ferro", unit: "ng/mL", units: ["ng/mL"], min: 30, max: 300, alias: "ferritina riserve ferro" },
+
+  // Elettroliti / Vitamine
+  { key: "sodio", nome: "Sodio", cat: "Elettroliti", unit: "mEq/L", units: ["mEq/L","mmol/L"], unitFactors: {"mEq/L":1, "mmol/L":1}, min: 136, max: 145, alias: "sodio na elettroliti" },
+  { key: "potassio", nome: "Potassio", cat: "Elettroliti", unit: "mEq/L", units: ["mEq/L","mmol/L"], unitFactors: {"mEq/L":1, "mmol/L":1}, min: 3.5, max: 5.1, alias: "potassio k elettroliti" },
+  { key: "magnesio", nome: "Magnesio", cat: "Elettroliti", unit: "mg/dL", units: ["mg/dL","mmol/L"], unitFactors: {"mg/dL":1, "mmol/L":2.43}, min: 1.6, max: 2.6, alias: "magnesio mg" },
+  { key: "vitd", nome: "Vitamina D (25-OH)", cat: "Vitamine", unit: "ng/mL", units: ["ng/mL"], min: 30, max: 100, alias: "vitamina d 25-oh colecalciferolo" },
+  { key: "b12", nome: "Vitamina B12", cat: "Vitamine", unit: "pg/mL", units: ["pg/mL"], min: 197, max: 771, alias: "vitamina b12 cobalamina" },
+
+  // Endocrino / Terapia
+  { key: "tsh", nome: "TSH", cat: "Endocrino", unit: "uUI/mL", units: ["uUI/mL"], min: 0.35, max: 4.20, alias: "tsh tireotropina tiroide" },
+  { key: "ft3", nome: "FT3", cat: "Endocrino", unit: "pg/mL", units: ["pg/mL"], min: 1.80, max: 4.40, alias: "ft3 triiodotironina libera tiroide" },
+  { key: "ft4", nome: "FT4", cat: "Endocrino", unit: "ng/dL", units: ["ng/dL"], min: 0.70, max: 1.90, alias: "ft4 tiroxina libera tiroide" },
+  { key: "litio", nome: "Litiemia", cat: "Endocrino", unit: "mmol/L", units: ["mmol/L"], min: 0.50, max: 1.20, alias: "litio litiemia carbonato di litio" },
+  { key: "anti_tg", nome: "Anticorpi anti-tireoglobulina", cat: "Endocrino", unit: "UI/mL", units: ["UI/mL"], min: 0, max: 4.00, alias: "anti tireoglobulina tiroide autoimmune tg-ab" },
+  { key: "anti_tpo", nome: "Anticorpi anti-perossidasi tiroidea", cat: "Endocrino", unit: "IU/mL", units: ["IU/mL"], min: 0, max: 10, alias: "anti perossidasi tiroidea tpo tiroide autoimmune" },
+
+  // Celiachia / Altro
+  { key: "tg_iga", nome: "Anti-transglutaminasi IgA", cat: "Altro", unit: "AU/mL", units: ["AU/mL","U/mL"], unitFactors: {"AU/mL":1, "U/mL":1}, min: 0, max: 20, alias: "transglutaminasi iga celiachia" },
+  { key: "tg_igg", nome: "Anti-transglutaminasi IgG", cat: "Altro", unit: "AU/mL", units: ["AU/mL","U/mL"], unitFactors: {"AU/mL":1, "U/mL":1}, min: 0, max: 20, alias: "transglutaminasi igg celiachia" },
+  { key: "iga_tot", nome: "IgA sieriche totali", cat: "Altro", unit: "mg/dL", units: ["mg/dL"], min: 70, max: 400, alias: "iga sieriche totali immunoglobuline" },
+];
+
+const PINNED = PARAM_DICT.filter(p => p.pinned);
+const NON_PINNED = PARAM_DICT.filter(p => !p.pinned);
+const byKey = Object.fromEntries(PARAM_DICT.map(p => [p.key, p]));
+
+// ---------------- Storage layer con fallback ----------------
+// Prova prima lo storage persistente dell'artifact (window.storage).
+// Se non disponibile (es. file aperto direttamente nel browser), usa IndexedDB.
+// In ogni caso, offre sempre un backup/ripristino manuale via file JSON.
+
+let storageMode = 'checking';
+let idb = null;
+
+function openIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('tracker_analisi_db', 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore('referti', { keyPath: 'id' });
+      req.result.createObjectStore('meta', { keyPath: 'key' }); // piccoli metadati (es. timestamp ultima modifica, per la sincronizzazione)
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function initStorage() {
+  try {
+    if (window.storage && typeof window.storage.set === 'function') {
+      // test rapido di scrittura/lettura
+      await window.storage.set('__test__', '1', false);
+      await window.storage.get('__test__', false);
+      storageMode = 'artifact';
+      return;
+    }
+    throw new Error('window.storage non disponibile');
+  } catch (e) {
+    try {
+      idb = await openIndexedDB();
+      storageMode = 'indexeddb';
+    } catch (e2) {
+      console.error('IndexedDB non disponibile', e2);
+      storageMode = 'memory';
+    }
+  }
+}
+
+let memoryStore = {};
+let memoryMeta = {};
+
+// piccoli metadati chiave-valore (usati per il timestamp di sincronizzazione)
+async function getMeta(key) {
+  if (storageMode === 'artifact') {
+    try {
+      const r = await window.storage.get('meta:' + key, false);
+      return r ? JSON.parse(r.value) : null;
+    } catch (e) { return null; }
+  } else if (storageMode === 'indexeddb') {
+    return new Promise((resolve) => {
+      const tx = idb.transaction('meta', 'readonly');
+      const req = tx.objectStore('meta').get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.value : null);
+      req.onerror = () => resolve(null);
+    });
+  } else {
+    return memoryMeta[key] ?? null;
+  }
+}
+
+async function setMeta(key, value) {
+  if (storageMode === 'artifact') {
+    await window.storage.set('meta:' + key, JSON.stringify(value), false);
+  } else if (storageMode === 'indexeddb') {
+    await new Promise((resolve, reject) => {
+      const tx = idb.transaction('meta', 'readwrite');
+      tx.objectStore('meta').put({ key, value });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } else {
+    memoryMeta[key] = value;
+  }
+}
+
+// segna "adesso" come ultima modifica locale — usato dalla sincronizzazione per il last-write-wins
+async function touchUpdated() {
+  const ts = Date.now();
+  await setMeta('updatedAt', ts);
+  return ts;
+}
+
+// sostituisce tutti i referti locali con un set arrivato da remoto (usato quando Drive vince la sincronizzazione)
+async function replaceAllLocalReferti(newReferti) {
+  const current = await loadAllReferti();
+  for (const r of current) await deleteReferto(r.id);
+  for (const r of newReferti) await saveReferto(r);
+}
+
+async function saveReferto(referto) {
+  if (storageMode === 'artifact') {
+    const r = await window.storage.set('referto:' + referto.id, JSON.stringify(referto), false);
+    if (!r) throw new Error('Salvataggio fallito (artifact storage)');
+  } else if (storageMode === 'indexeddb') {
+    await new Promise((resolve, reject) => {
+      const tx = idb.transaction('referti', 'readwrite');
+      tx.objectStore('referti').put(referto);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } else {
+    memoryStore[referto.id] = referto;
+  }
+}
+
+async function deleteReferto(id) {
+  if (storageMode === 'artifact') {
+    await window.storage.delete('referto:' + id, false);
+  } else if (storageMode === 'indexeddb') {
+    await new Promise((resolve, reject) => {
+      const tx = idb.transaction('referti', 'readwrite');
+      tx.objectStore('referti').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } else {
+    delete memoryStore[id];
+  }
+}
+
+async function loadAllReferti() {
+  let referti = [];
+  try {
+    if (storageMode === 'artifact') {
+      const list = await window.storage.list('referto:', false);
+      if (list && list.keys) {
+        for (const k of list.keys) {
+          try {
+            const r = await window.storage.get(k, false);
+            if (r && r.value) referti.push(JSON.parse(r.value));
+          } catch (e) { /* chiave sparita, ignora */ }
+        }
+      }
+    } else if (storageMode === 'indexeddb') {
+      referti = await new Promise((resolve, reject) => {
+        const tx = idb.transaction('referti', 'readonly');
+        const req = tx.objectStore('referti').getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    } else {
+      referti = Object.values(memoryStore);
+    }
+  } catch (e) {
+    console.error('Errore caricamento referti', e);
+  }
+  referti.sort((a,b) => new Date(b.data) - new Date(a.data));
+  return referti;
+}
+
+function downloadBackup(referti) {
+  const blob = new Blob([JSON.stringify(referti, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'backup_analisi_' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function importBackup(file) {
+  const text = await file.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    alert('File non valido.');
+    return;
+  }
+  if (!Array.isArray(data)) { alert('Formato backup non riconosciuto.'); return; }
+  for (const r of data) {
+    if (r.id && r.data && Array.isArray(r.valori)) {
+      await saveReferto(r);
+    }
+  }
+  await touchUpdated();
+  scheduleDriveSync();
+  await renderList();
+  alert(`Importati ${data.length} referti.`);
+}
+
+// ---------------- Stato form ----------------
+let currentExtraRows = []; // {paramKey, valore, unit}
+let editingId = null; // se diverso da null, il form sta modificando un referto esistente
+
+function isFlagged(val, min, max) {
+  if (val === '' || val === null || val === undefined || isNaN(val)) return false;
+  return parseFloat(val) < min || parseFloat(val) > max;
+}
+
+function renderForm(existing) {
+  const formArea = document.getElementById('formArea');
+  editingId = existing ? existing.id : null;
+
+  // precompila le righe extra a partire dal referto esistente (esami non pinned)
+  if (existing) {
+    currentExtraRows = existing.valori
+      .filter(v => !byKey[v.paramKey] || !byKey[v.paramKey].pinned)
+      .map(v => ({ paramKey: v.paramKey, valore: v.valore, unit: v.unit }));
+  } else {
+    currentExtraRows = [];
+  }
+
+  formArea.innerHTML = `
+    <div class="card" id="formCard">
+      ${existing ? '<div class="editing-badge">✏️ Modifica referto esistente</div>' : ''}
+      <div class="field-row">
+        <div style="flex:1">
+          <label>Data prelievo</label>
+          <input type="date" id="f_data">
+        </div>
+        <div style="flex:1">
+          <label>Laboratorio (opzionale)</label>
+          <input type="text" id="f_lab" placeholder="es. AOU Salerno">
+        </div>
+      </div>
+
+      <div class="section-title">Emocromo (campi standard)</div>
+      ${PINNED.map(p => {
+        const existingVal = existing ? existing.valori.find(v => v.paramKey === p.key) : null;
+        return `
+        <div class="exam-row">
+          <div class="exam-name">${p.nome}</div>
+          <input type="number" step="any" id="pin_${p.key}" placeholder="valore" value="${existingVal ? existingVal.valore : ''}">
+          <select id="unit_${p.key}">
+            ${p.units.map(u => `<option value="${u}" ${u === (existingVal ? existingVal.unit : p.unit) ? 'selected' : ''}>${u}</option>`).join('')}
+          </select>
+          <div></div>
+        </div>
+      `;
+      }).join('')}
+
+      <div class="section-title">Altri esami</div>
+      <div id="extraRows"></div>
+      <div class="add-exam-wrap">
+        <input type="text" id="addExamSearch" placeholder="Cerca esame da aggiungere..." autocomplete="off">
+        <div id="addExamResults" class="add-exam-results"></div>
+      </div>
+
+      <div class="close-form">
+        <button class="btn secondary small" id="cancelForm">Annulla</button>
+        <button class="btn small" id="saveForm">${existing ? 'Salva modifiche' : 'Salva referto'}</button>
+      </div>
+    </div>
+  `;
+
+  renderExtraRows();
+  setupExamSearch();
+
+  document.getElementById('cancelForm').onclick = () => {
+    currentExtraRows = [];
+    editingId = null;
+    document.getElementById('formArea').innerHTML = '';
+  };
+  document.getElementById('saveForm').onclick = onSave;
+
+  // default oggi, oppure la data del referto in modifica
+  const dEl = document.getElementById('f_data');
+  dEl.value = existing ? existing.data : new Date().toISOString().slice(0,10);
+  document.getElementById('f_lab').value = existing ? (existing.laboratorio || '') : '';
+
+  const formCardEl = document.getElementById('formCard');
+  if (formCardEl.scrollIntoView) formCardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function setupExamSearch() {
+  const input = document.getElementById('addExamSearch');
+  const results = document.getElementById('addExamResults');
+  let activeIndex = -1;
+
+  function getAvailable() {
+    // esclude i campi emocromo già dedicati (pinned) e quelli già aggiunti come extra
+    return NON_PINNED.filter(p => !currentExtraRows.find(r => r.paramKey === p.key));
+  }
+
+  function updateActiveHighlight() {
+    const items = results.querySelectorAll('.result-item');
+    items.forEach((it, i) => it.classList.toggle('active', i === activeIndex));
+    if (activeIndex >= 0 && items[activeIndex]) {
+      if (items[activeIndex].scrollIntoView) items[activeIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function selectItem(item) {
+    const p = byKey[item.dataset.key];
+    currentExtraRows.push({ paramKey: p.key, valore: '', unit: p.unit });
+    input.value = '';
+    results.style.display = 'none';
+    activeIndex = -1;
+    renderExtraRows();
+    // dopo aver aggiunto, riporta il focus sul campo valore appena creato
+    const rows = document.querySelectorAll('#extraRows .extraVal');
+    if (rows.length) rows[rows.length - 1].focus();
+  }
+
+  function renderResults(query) {
+    activeIndex = -1;
+    const q = query.trim();
+    const available = getAvailable();
+
+    let matches;
+    if (q === '') {
+      matches = available;
+    } else {
+      const fuse = new Fuse(available, {
+        keys: ['nome', 'alias', 'cat'],
+        threshold: 0.4,     // tollerante a piccoli errori di battitura
+        ignoreLocation: true,
+        minMatchCharLength: 2
+      });
+      matches = fuse.search(q).map(r => r.item);
+    }
+
+    if (matches.length === 0) {
+      results.innerHTML = '<div class="no-results">Nessun esame trovato (o già aggiunto)</div>';
+      results.style.display = 'block';
+      return;
+    }
+
+    const grouped = groupBy(matches, 'cat');
+    results.innerHTML = Object.entries(grouped).map(([cat, items]) => `
+      <div class="result-group">
+        <div class="result-cat">${cat}</div>
+        ${items.map(p => `<div class="result-item" data-key="${p.key}">${p.nome}</div>`).join('')}
+      </div>
+    `).join('');
+    results.style.display = 'block';
+
+    results.querySelectorAll('.result-item').forEach(item => {
+      item.addEventListener('click', () => selectItem(item));
+    });
+  }
+
+  input.addEventListener('focus', () => renderResults(input.value));
+  input.addEventListener('input', () => renderResults(input.value));
+
+  input.addEventListener('keydown', (e) => {
+    const items = results.querySelectorAll('.result-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (items.length === 0) return;
+      activeIndex = (activeIndex + 1) % items.length;
+      updateActiveHighlight();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (items.length === 0) return;
+      activeIndex = (activeIndex - 1 + items.length) % items.length;
+      updateActiveHighlight();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIndex >= 0 && items[activeIndex]) {
+        selectItem(items[activeIndex]);
+      } else if (items.length === 1) {
+        // un solo risultato: invio lo seleziona direttamente
+        selectItem(items[0]);
+      }
+    } else if (e.key === 'Escape') {
+      results.style.display = 'none';
+      activeIndex = -1;
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      results.style.display = 'none';
+    }
+  });
+}
+
+function groupBy(arr, k) {
+  return arr.reduce((acc, x) => {
+    (acc[x[k]] = acc[x[k]] || []).push(x);
+    return acc;
+  }, {});
+}
+
+function renderExtraRows() {
+  const el = document.getElementById('extraRows');
+  el.innerHTML = currentExtraRows.map((r, i) => {
+    const p = byKey[r.paramKey];
+    return `
+      <div class="exam-row">
+        <div class="exam-name">${p.nome}</div>
+        <input type="number" step="any" data-idx="${i}" class="extraVal" value="${r.valore}">
+        <select data-idx="${i}" class="extraUnit">
+          ${p.units.map(u => `<option value="${u}" ${u===r.unit?'selected':''}>${u}</option>`).join('')}
+        </select>
+        <div class="remove-btn" data-idx="${i}">✕</div>
+      </div>
+    `;
+  }).join('');
+
+  el.querySelectorAll('.extraVal').forEach(inp => {
+    inp.addEventListener('input', e => {
+      currentExtraRows[e.target.dataset.idx].valore = e.target.value;
+    });
+  });
+  el.querySelectorAll('.extraUnit').forEach(sel => {
+    sel.addEventListener('change', e => {
+      currentExtraRows[e.target.dataset.idx].unit = e.target.value;
+    });
+  });
+  el.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      currentExtraRows.splice(parseInt(e.target.dataset.idx), 1);
+      renderExtraRows();
+    });
+  });
+}
+
+async function onSave() {
+  const data = document.getElementById('f_data').value;
+  const lab = document.getElementById('f_lab').value;
+  if (!data) { alert('Inserisci la data del prelievo'); return; }
+
+  const valori = [];
+  PINNED.forEach(p => {
+    const v = document.getElementById('pin_' + p.key).value;
+    if (v !== '') {
+      const unit = document.getElementById('unit_' + p.key).value;
+      valori.push({ paramKey: p.key, valore: parseFloat(v), unit });
+    }
+  });
+  currentExtraRows.forEach(r => {
+    if (r.valore !== '') {
+      valori.push({ paramKey: r.paramKey, valore: parseFloat(r.valore), unit: r.unit });
+    }
+  });
+
+  if (valori.length === 0) { alert('Inserisci almeno un valore'); return; }
+
+  const referto = {
+    id: editingId || ('r_' + Date.now()),
+    data, laboratorio: lab, valori
+  };
+
+  try {
+    await saveReferto(referto);
+    await touchUpdated();
+    scheduleDriveSync();
+  } catch (e) {
+    alert('Errore nel salvataggio, riprova.');
+    console.error(e);
+    return;
+  }
+
+  currentExtraRows = [];
+  editingId = null;
+  document.getElementById('formArea').innerHTML = '';
+  await renderList();
+}
+
+async function renderList() {
+  const listArea = document.getElementById('listArea');
+  listArea.innerHTML = '<div class="empty">Caricamento...</div>';
+  const referti = await loadAllReferti();
+
+  if (referti.length === 0) {
+    listArea.innerHTML = '<div class="empty">Nessun referto salvato. Tocca "+ Nuovo referto" per iniziare.</div>';
+    return;
+  }
+
+  listArea.innerHTML = referti.map(r => {
+    const dataFmt = new Date(r.data).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+    return `
+      <div class="referto-card" data-id="${r.id}">
+        <div class="referto-head">
+          <div>
+            <div class="referto-date">${dataFmt}</div>
+            <div class="referto-lab">${r.laboratorio || 'Laboratorio non specificato'}</div>
+          </div>
+          <div class="referto-count">${r.valori.length} esami</div>
+        </div>
+        <div class="referto-detail" style="display:none" id="detail-${r.id}">
+          ${r.valori.map(v => {
+            const p = byKey[v.paramKey];
+            const flagged = p ? isFlagged(v.valore, p.min, p.max) : false;
+            return `<div class="val-row"><span>${p ? p.nome : v.paramKey}</span><span class="${flagged ? 'flag' : ''}">${v.valore} ${v.unit}</span></div>`;
+          }).join('')}
+          <div style="text-align:right; margin-top:8px;">
+            <button class="btn secondary small" data-editid="${r.id}">Modifica</button>
+            <button class="btn danger small" data-delid="${r.id}">Elimina</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listArea.querySelectorAll('.referto-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.dataset.delid) return;
+      const id = card.dataset.id;
+      const detail = document.getElementById('detail-' + id);
+      detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+  listArea.querySelectorAll('[data-delid]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('Eliminare questo referto?')) return;
+      await deleteReferto(btn.dataset.delid);
+      await touchUpdated();
+      scheduleDriveSync();
+      await renderList();
+    });
+  });
+  listArea.querySelectorAll('[data-editid]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const referti = await loadAllReferti();
+      const r = referti.find(x => x.id === btn.dataset.editid);
+      if (r) renderForm(r);
+    });
+  });
+}
+
+document.getElementById('newReferto').addEventListener('click', () => {
+  currentExtraRows = [];
+  editingId = null;
+  renderForm();
+});
+
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const referti = await loadAllReferti();
+  if (referti.length === 0) { alert('Nessun referto da esportare.'); return; }
+  downloadBackup(referti);
+});
+
+document.getElementById('importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (file) await importBackup(file);
+  e.target.value = '';
+});
+
+function renderStorageStatus() {
+  const el = document.getElementById('storageStatus');
+  if (storageMode === 'artifact') {
+    el.textContent = '💾 Salvataggio automatico attivo';
+    el.className = 'storage-status';
+  } else if (storageMode === 'indexeddb') {
+    el.textContent = '💾 Salvataggio locale in questo browser — usa "Backup" per non perdere i dati se cambi dispositivo';
+    el.className = 'storage-status warn';
+  } else {
+    el.textContent = '⚠️ Nessun salvataggio persistente disponibile — i dati si perdono chiudendo la pagina. Usa "Backup" prima di uscire.';
+    el.className = 'storage-status warn';
+  }
+}
+
+// ---------------- Navigazione con Invio tra i campi valore ----------------
+// Invio passa al campo "valore" successivo (saltando il menu unità di misura).
+// Tab segue invece l'ordine naturale del DOM: valore -> unità -> valore successivo.
+document.getElementById('formArea').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const target = e.target;
+  const isValueInput = target.tagName === 'INPUT' && target.type === 'number';
+  if (!isValueInput) return;
+
+  e.preventDefault();
+  const formCard = document.getElementById('formCard');
+  if (!formCard) return;
+  const allValueInputs = Array.from(formCard.querySelectorAll('input[type=number]'));
+  const idx = allValueInputs.indexOf(target);
+  if (idx > -1 && idx < allValueInputs.length - 1) {
+    const next = allValueInputs[idx + 1];
+    next.focus();
+    next.select();
+  } else {
+    // ultimo campo valore: sposta il focus sulla ricerca di altri esami
+    const search = document.getElementById('addExamSearch');
+    if (search) search.focus();
+  }
+});
+
+// =========================================================================
+// VISTA "ANDAMENTO" — situazione d'insieme + grafici singoli/confronto
+// =========================================================================
+
+function toCanonical(param, value, unit) {
+  if (!param.unitFactors) return value;
+  const factor = param.unitFactors[unit];
+  return (factor === undefined) ? value : value * factor;
+}
+
+// costruisce, per ogni parametro con almeno un dato, la serie storica ordinata per data
+async function buildSeries() {
+  const referti = await loadAllReferti();
+  const sorted = [...referti].sort((a,b) => new Date(a.data) - new Date(b.data));
+  const series = {}; // paramKey -> [{date, value}]
+
+  sorted.forEach(r => {
+    r.valori.forEach(v => {
+      const p = byKey[v.paramKey];
+      if (!p) return;
+      const val = toCanonical(p, v.valore, v.unit);
+      if (!series[v.paramKey]) series[v.paramKey] = [];
+      series[v.paramKey].push({ date: r.data, value: val });
+    });
+  });
+  return series;
+}
+
+function isFlaggedVal(v, min, max) {
+  if (v === null || v === undefined || isNaN(v)) return false;
+  return v < min || v > max;
+}
+
+let compareSet = new Set(); // paramKey selezionati per il confronto
+let andOpenKey = null;      // card attualmente espansa con grafico singolo
+
+async function renderAndamento() {
+  const area = document.getElementById('andamentoArea');
+  const series = await buildSeries();
+  const keysWithData = Object.keys(series);
+
+  if (keysWithData.length === 0) {
+    area.innerHTML = '<div class="and-empty">Nessun dato ancora disponibile. Inserisci almeno un referto nella scheda "Referti" per vedere qui la situazione d\'insieme.</div>';
+    renderCompareBar();
+    return;
+  }
+
+  const paramsWithData = PARAM_DICT.filter(p => keysWithData.includes(p.key));
+  const cats = [...new Set(paramsWithData.map(p => p.cat))];
+
+  area.innerHTML = '';
+  cats.forEach(cat => {
+    const gt = document.createElement('div');
+    gt.className = 'and-group-title';
+    gt.textContent = cat;
+    area.appendChild(gt);
+
+    const grid = document.createElement('div');
+    grid.className = 'and-grid';
+
+    paramsWithData.filter(p => p.cat === cat).forEach(p => {
+      const pts = series[p.key];
+      const last = pts[pts.length - 1];
+      const flagged = isFlaggedVal(last.value, p.min, p.max);
+      const isSelected = compareSet.has(p.key);
+
+      const card = document.createElement('div');
+      card.className = 'and-card' + (flagged ? ' flagged' : '') + (isSelected ? ' selected' : '');
+      card.innerHTML = `
+        <div class="and-compare-toggle ${isSelected ? 'on' : ''}" data-compare="${p.key}" title="Aggiungi al confronto">${isSelected ? '✓' : '+'}</div>
+        <div class="and-pname">${p.nome}</div>
+        <div class="and-pval" data-open="${p.key}">${roundSmart(last.value)}<span class="unit">${p.unit}</span></div>
+        <div class="and-pmeta">
+          <span class="and-prange">rif. ${p.min}-${p.max}</span>
+          ${flagged ? '<span class="and-pflag">fuori range</span>' : ''}
+        </div>
+      `;
+      grid.appendChild(card);
+
+      if (andOpenKey === p.key) {
+        const detail = document.createElement('div');
+        detail.className = 'and-detail';
+        detail.id = 'and-detail-' + p.key;
+        detail.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:0.9rem; font-weight:600; color:#fff;">${p.nome}</div>
+            <div>
+              <span class="expand-btn" id="and-expand-${p.key}">⤢ ingrandisci</span>
+              <span class="close-btn" id="and-close-${p.key}" style="cursor:pointer; color:#8a8f98; font-size:0.72rem; padding:3px 8px; border:1px solid #2a2f3a; border-radius:20px;">chiudi ✕</span>
+            </div>
+          </div>
+          <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px;">Range di riferimento: ${p.min} – ${p.max} ${p.unit}</div>
+          <div class="chart-fixed-height"><canvas id="and-canvas-${p.key}"></canvas></div>
+        `;
+        grid.appendChild(detail);
+      }
+    });
+
+    area.appendChild(grid);
+  });
+
+  // binding click: apri/chiudi dettaglio
+  area.querySelectorAll('[data-open]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.open;
+      andOpenKey = (andOpenKey === key) ? null : key;
+      renderAndamento();
+    });
+  });
+
+  // binding click: toggle confronto
+  area.querySelectorAll('[data-compare]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = el.dataset.compare;
+      if (compareSet.has(key)) compareSet.delete(key);
+      else compareSet.add(key);
+      renderAndamento();
+      renderCompareBar();
+    });
+  });
+
+  if (andOpenKey) {
+    const p = byKey[andOpenKey];
+    const closeBtn = document.getElementById('and-close-' + andOpenKey);
+    if (closeBtn) closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      andOpenKey = null;
+      renderAndamento();
+    });
+    const expandBtn = document.getElementById('and-expand-' + andOpenKey);
+    if (expandBtn) expandBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openChartModal(p.nome, () => drawSingleChart(p, series[andOpenKey], 'chartModalCanvas'));
+    });
+    drawSingleChart(p, series[andOpenKey]);
+  }
+}
+
+function roundSmart(v) {
+  if (Math.abs(v) >= 100) return Math.round(v * 10) / 10;
+  return Math.round(v * 100) / 100;
+}
+
+// mappa generica delle istanze grafico attive, per canvas id (evita conflitti tra viste diverse che usano Chart.js)
+const chartInstances = {};
+function destroyChartOn(canvasId) {
+  if (chartInstances[canvasId]) {
+    chartInstances[canvasId].destroy();
+    delete chartInstances[canvasId];
+  }
+}
+
+function drawSingleChart(p, points, canvasId) {
+  canvasId = canvasId || ('and-canvas-' + p.key);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  destroyChartOn(canvasId);
+
+  const labels = points.map(pt => new Date(pt.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' }));
+  const values = points.map(pt => pt.value);
+  const pointColors = values.map(v => isFlaggedVal(v, p.min, p.max) ? '#e0a458' : '#5b9dff');
+
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: p.nome,
+          data: values,
+          borderColor: '#5b9dff',
+          backgroundColor: '#5b9dff',
+          pointBackgroundColor: pointColors,
+          pointBorderColor: pointColors,
+          pointRadius: 5,
+          tension: 0.25
+        },
+        {
+          label: 'min', data: labels.map(() => p.min),
+          borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1
+        },
+        {
+          label: 'max', data: labels.map(() => p.max),
+          borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } },
+        y: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } }
+      }
+    }
+  });
+}
+
+// --- Barra di confronto multi-parametro ---
+
+function renderCompareBar() {
+  const bar = document.getElementById('compareBar');
+  if (compareSet.size === 0) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+  bar.style.display = 'block';
+
+  const chips = [...compareSet].map(key => {
+    const p = byKey[key];
+    return `<div class="compare-chip">${p.nome}<span class="x" data-remove="${key}">✕</span></div>`;
+  }).join('');
+
+  bar.innerHTML = `
+    <div class="compare-chips">${chips}</div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn small" id="showCompareBtn">📈 Confronta (${compareSet.size})</button>
+      <button class="btn secondary small" id="clearCompareBtn">Svuota</button>
+    </div>
+    <div class="compare-chart-wrap" id="compareChartWrap">
+      <div style="text-align:right; margin-bottom:6px;">
+        <span class="expand-btn" id="compareExpandBtn">⤢ ingrandisci</span>
+      </div>
+      <div class="chart-fixed-height"><canvas id="compareCanvas"></canvas></div>
+      <div class="compare-note">Parametri con unità diverse sono mostrati su assi separati (sinistra/destra) per restare confrontabili.</div>
+    </div>
+  `;
+
+  bar.querySelectorAll('[data-remove]').forEach(x => {
+    x.addEventListener('click', () => {
+      compareSet.delete(x.dataset.remove);
+      renderCompareBar();
+      renderAndamento();
+    });
+  });
+
+  document.getElementById('clearCompareBtn').addEventListener('click', () => {
+    compareSet.clear();
+    renderCompareBar();
+    renderAndamento();
+  });
+
+  document.getElementById('showCompareBtn').addEventListener('click', async () => {
+    const wrap = document.getElementById('compareChartWrap');
+    wrap.classList.toggle('open');
+    if (wrap.classList.contains('open')) {
+      const series = await buildSeries();
+      drawCompareChart([...compareSet].map(k => byKey[k]), series);
+    }
+  });
+
+  document.getElementById('compareExpandBtn').addEventListener('click', async () => {
+    const series = await buildSeries();
+    const params = [...compareSet].map(k => byKey[k]);
+    openChartModal('Confronto parametri', () => drawCompareChart(params, series, 'chartModalCanvas'));
+  });
+}
+
+function drawCompareChart(params, series, canvasId) {
+  canvasId = canvasId || 'compareCanvas';
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  destroyChartOn(canvasId);
+
+  // asse condiviso per data: unione di tutte le date coinvolte, ordinate
+  const allDatesSet = new Set();
+  params.forEach(p => (series[p.key] || []).forEach(pt => allDatesSet.add(pt.date)));
+  const allDates = [...allDatesSet].sort((a,b) => new Date(a) - new Date(b));
+  const labels = allDates.map(d => new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' }));
+
+  // un asse Y per ogni unità diversa tra i parametri selezionati (max 2 visibili L/R, gli altri nascosti ma comunque scalati)
+  const unitsInvolved = [...new Set(params.map(p => p.unit))];
+  const palette = ['#5b9dff', '#f0916b', '#7ed6a5', '#e0a458', '#c792ea', '#66d9ef'];
+
+  const datasets = params.map((p, i) => {
+    const map = Object.fromEntries((series[p.key] || []).map(pt => [pt.date, pt.value]));
+    const data = allDates.map(d => (d in map ? map[d] : null));
+    const axisId = 'y_' + unitsInvolved.indexOf(p.unit);
+    return {
+      label: `${p.nome} (${p.unit})`,
+      data,
+      borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length],
+      spanGaps: true,
+      tension: 0.25,
+      yAxisID: axisId
+    };
+  });
+
+  const scales = {
+    x: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } }
+  };
+  unitsInvolved.forEach((u, i) => {
+    scales['y_' + i] = {
+      position: i % 2 === 0 ? 'left' : 'right',
+      ticks: { color: '#8a8f98', font: { size: 10 } },
+      grid: { display: i === 0, color: '#1c2028' },
+      title: { display: true, text: u, color: '#8a8f98', font: { size: 10 } }
+    };
+  });
+
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#c7cad1', font: { size: 10 } } } },
+      scales
+    }
+  });
+}
+
+// --- Modale grafico ingrandito ---
+function openChartModal(title, drawFn) {
+  document.getElementById('chartModalTitle').textContent = title;
+  document.getElementById('chartModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  // il canvas deve essere visibile (dimensioni reali) prima di disegnare, altrimenti Chart.js calcola male le dimensioni
+  requestAnimationFrame(() => drawFn());
+}
+
+function closeChartModal() {
+  document.getElementById('chartModal').classList.remove('open');
+  document.body.style.overflow = '';
+  destroyChartOn('chartModalCanvas');
+}
+
+document.getElementById('chartModalClose').addEventListener('click', closeChartModal);
+document.getElementById('chartModal').addEventListener('click', (e) => {
+  if (e.target.id === 'chartModal') closeChartModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('chartModal').classList.contains('open')) {
+    closeChartModal();
+  }
+});
+
+// --- Toggle tra le due viste ---
+document.querySelectorAll('.view-tab').forEach(tab => {
+  tab.addEventListener('click', async () => {
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const view = tab.dataset.view;
+    document.getElementById('view-referti').style.display = view === 'referti' ? 'block' : 'none';
+    document.getElementById('view-andamento').style.display = view === 'andamento' ? 'block' : 'none';
+    if (view === 'andamento') {
+      await renderAndamento();
+      renderCompareBar();
+    }
+  });
+});
+
+// =========================================================================
+// SINCRONIZZAZIONE CON GOOGLE DRIVE (last-write-wins, un solo utente)
+// =========================================================================
+//
+// IMPORTANTE PER CHI PUBBLICA QUESTO PROGETTO:
+// Sostituisci CLIENT_ID qui sotto con il tuo Client ID OAuth (Google Cloud Console),
+// e registra come "origine JavaScript autorizzata" l'URL dove pubblichi la pagina
+// (es. https://tuonome.github.io). Vedi README.md per i passaggi completi.
+
+const DRIVE_CLIENT_ID = 'INSERISCI_QUI_IL_TUO_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FILE_NAME = 'tracker_analisi_data.json';
+
+const driveSync = {
+  tokenClient: null,
+  accessToken: null,
+  fileId: null,
+  connected: false,
+  syncing: false,
+  debounceTimer: null,
+};
+
+function setDriveStatus(text, cls) {
+  const el = document.getElementById('driveStatus');
+  el.textContent = text;
+  el.className = 'drive-status' + (cls ? ' ' + cls : '');
+}
+
+function initDriveClient(attempt = 0) {
+  if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    if (attempt > 20) {
+      // dopo ~10s di tentativi (es. offline, o script Google bloccato) si arrende:
+      // il pulsante Drive resterà inattivo ma il resto dell'app funziona normalmente.
+      setDriveStatus('Google Drive non disponibile ora (offline?)', 'error');
+      return;
+    }
+    setTimeout(() => initDriveClient(attempt + 1), 500);
+    return;
+  }
+  driveSync.tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: DRIVE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) {
+        setDriveStatus('Connessione rifiutata o annullata', 'error');
+        return;
+      }
+      driveSync.accessToken = resp.access_token;
+      driveSync.connected = true;
+      document.getElementById('driveConnectBtn').textContent = '🔗 Connesso a Drive';
+      await performDriveSync();
+    },
+  });
+}
+
+async function driveApiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: 'Bearer ' + driveSync.accessToken,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Drive API ${res.status}: ${body}`);
+  }
+  return res;
+}
+
+async function driveFindOrCreateFile() {
+  // cerca un file esistente con il nome convenuto
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const listRes = await driveApiFetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`
+  );
+  const listData = await listRes.json();
+  if (listData.files && listData.files.length > 0) {
+    return listData.files[0].id;
+  }
+  // non esiste: crealo vuoto
+  const createRes = await driveApiFetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: DRIVE_FILE_NAME }),
+  });
+  const createData = await createRes.json();
+  return createData.id;
+}
+
+async function driveDownload(fileId) {
+  try {
+    const res = await driveApiFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+    const text = await res.text();
+    if (!text) return null;
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('Errore lettura da Drive', e);
+    return null;
+  }
+}
+
+async function driveUpload(fileId, payload) {
+  await driveApiFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function performDriveSync() {
+  if (!driveSync.connected || driveSync.syncing) return;
+  driveSync.syncing = true;
+  setDriveStatus('Sincronizzazione in corso...', 'syncing');
+
+  try {
+    if (!driveSync.fileId) {
+      driveSync.fileId = await driveFindOrCreateFile();
+    }
+
+    const remote = await driveDownload(driveSync.fileId);
+    const localUpdatedAt = (await getMeta('updatedAt')) || 0;
+    const remoteUpdatedAt = (remote && remote.updatedAt) || 0;
+
+    if (remoteUpdatedAt > localUpdatedAt) {
+      // Drive ha una versione più recente: sovrascrive i dati locali
+      await replaceAllLocalReferti(remote.referti || []);
+      await setMeta('updatedAt', remoteUpdatedAt);
+      await renderList();
+      const andView = document.getElementById('view-andamento');
+      if (andView && andView.style.display !== 'none') await renderAndamento();
+      setDriveStatus('Aggiornato da Drive · ' + new Date(remoteUpdatedAt).toLocaleTimeString('it-IT'), 'ok');
+    } else {
+      // i dati locali sono uguali o più recenti: li carica su Drive
+      const referti = await loadAllReferti();
+      const ts = localUpdatedAt || Date.now();
+      await driveUpload(driveSync.fileId, { referti, updatedAt: ts });
+      if (!localUpdatedAt) await setMeta('updatedAt', ts);
+      setDriveStatus('Sincronizzato · ' + new Date(ts).toLocaleTimeString('it-IT'), 'ok');
+    }
+  } catch (e) {
+    console.error('Errore di sincronizzazione Drive', e);
+    setDriveStatus('Errore di sincronizzazione (vedi console)', 'error');
+  } finally {
+    driveSync.syncing = false;
+  }
+}
+
+// evita di chiamare Drive ad ogni singola modifica: aspetta una breve pausa
+function scheduleDriveSync() {
+  if (!driveSync.connected) return;
+  clearTimeout(driveSync.debounceTimer);
+  driveSync.debounceTimer = setTimeout(performDriveSync, 2000);
+}
+
+document.getElementById('driveConnectBtn').addEventListener('click', () => {
+  if (!driveSync.tokenClient) {
+    setDriveStatus('Client Google non ancora pronto, riprova tra poco', 'error');
+    return;
+  }
+  driveSync.tokenClient.requestAccessToken({ prompt: driveSync.connected ? '' : 'consent' });
+});
+
+// ---------------- Registrazione service worker (per installabilità PWA e uso offline) ----------------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch((e) => {
+      console.error('Registrazione service worker fallita', e);
+    });
+  });
+}
+
+(async function init() {
+  await initStorage();
+  renderStorageStatus();
+  await renderList();
+  initDriveClient();
+})();
+</script>
+
+</body>
+</html>
