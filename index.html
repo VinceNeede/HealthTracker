@@ -1041,7 +1041,7 @@ async function renderOverdueBanner() {
   el.innerHTML = `
     <div class="overdue-banner">
       <div class="overdue-header" id="overdueHeader">
-        <span>⏰ ${overdue.length} esame${overdue.length > 1 ? 'i' : ''} da (ri)controllare</span>
+        <span>⏰ ${overdue.length} ${overdue.length > 1 ? 'esami' : 'esame'} da (ri)controllare</span>
         <span class="overdue-caret">${overdueBannerOpen ? '▲' : '▼'}</span>
       </div>
       ${overdueBannerOpen ? `
