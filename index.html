@@ -356,6 +356,7 @@
 
 <div id="driveBar" class="drive-bar">
   <button class="btn secondary small" id="driveConnectBtn">🔗 Connetti Google Drive</button>
+  <button class="btn secondary small" id="driveDisconnectBtn" style="display:none;">✕ Disconnetti / cambia account</button>
   <span id="driveStatus" class="drive-status"></span>
 </div>
 
@@ -585,6 +586,15 @@ async function replaceAllLocalReferti(newReferti) {
   const current = await loadAllReferti();
   for (const r of current) await deleteReferto(r.id);
   for (const r of newReferti) await saveReferto(r);
+}
+
+// svuota tutti i dati locali (referti + metadati) — usato quando ci si disconnette
+// da Drive, per non lasciare i dati di una persona visibili al prossimo utilizzatore
+// dello stesso browser/dispositivo
+async function clearAllLocalData() {
+  await replaceAllLocalReferti([]);
+  await setMeta('updatedAt', 0);
+  await setMeta('intervalOverrides', {});
 }
 
 async function saveReferto(referto) {
@@ -1568,12 +1578,33 @@ const driveSync = {
   connected: false,
   syncing: false,
   debounceTimer: null,
+  renewalTimer: null,
+  silentAttempt: false, // true quando la richiesta di token in corso è un tentativo di riconnessione automatica, non un click dell'utente
 };
 
 function setDriveStatus(text, cls) {
   const el = document.getElementById('driveStatus');
   el.textContent = text;
   el.className = 'drive-status' + (cls ? ' ' + cls : '');
+}
+
+function updateDriveButtons() {
+  document.getElementById('driveConnectBtn').style.display = driveSync.connected ? 'none' : '';
+  document.getElementById('driveDisconnectBtn').style.display = driveSync.connected ? '' : 'none';
+}
+
+// rinnova il token in background qualche minuto prima della scadenza (~1h), senza
+// interazione dell'utente, così la connessione resta attiva oltre l'ora invece di
+// richiedere sempre di ricliccare "Connetti"
+function scheduleTokenRenewal(expiresInSeconds) {
+  clearTimeout(driveSync.renewalTimer);
+  if (!expiresInSeconds) return;
+  const delayMs = Math.max(30, expiresInSeconds - 120) * 1000;
+  driveSync.renewalTimer = setTimeout(() => {
+    if (!driveSync.tokenClient) return;
+    driveSync.silentAttempt = true;
+    driveSync.tokenClient.requestAccessToken({ prompt: '' });
+  }, delayMs);
 }
 
 function initDriveClient(attempt = 0) {
@@ -1591,15 +1622,30 @@ function initDriveClient(attempt = 0) {
     client_id: DRIVE_CLIENT_ID,
     scope: DRIVE_SCOPE,
     callback: async (resp) => {
+      const wasSilent = driveSync.silentAttempt;
+      driveSync.silentAttempt = false;
       if (resp.error) {
-        setDriveStatus('Connessione rifiutata o annullata', 'error');
+        // se era un tentativo automatico (al caricamento o di rinnovo) fallito, non
+        // allarmare l'utente: resta semplicemente disconnesso finché non preme "Connetti"
+        if (!wasSilent) setDriveStatus('Connessione rifiutata o annullata', 'error');
         return;
       }
       driveSync.accessToken = resp.access_token;
       driveSync.connected = true;
-      document.getElementById('driveConnectBtn').textContent = '🔗 Connesso a Drive';
+      await setMeta('driveWasConnected', true);
+      updateDriveButtons();
+      scheduleTokenRenewal(resp.expires_in);
       await performDriveSync();
     },
+  });
+
+  // se l'utente si era già connesso in precedenza (anche in una sessione precedente),
+  // prova a riconnettersi in silenzio invece di richiedere sempre un click su "Connetti"
+  getMeta('driveWasConnected').then((was) => {
+    if (was && driveSync.tokenClient) {
+      driveSync.silentAttempt = true;
+      driveSync.tokenClient.requestAccessToken({ prompt: '' });
+    }
   });
 }
 
@@ -1715,6 +1761,34 @@ document.getElementById('driveConnectBtn').addEventListener('click', () => {
   // 'select_account' forza sempre la schermata di scelta account Google,
   // anche se il browser ha già una sessione attiva con un altro indirizzo.
   driveSync.tokenClient.requestAccessToken({ prompt: 'select_account consent' });
+});
+
+document.getElementById('driveDisconnectBtn').addEventListener('click', async () => {
+  if (!confirm('Disconnettere Google Drive? I dati locali su questo dispositivo verranno cancellati (restano salvati su Drive), per permettere a un\'altra persona di usare l\'app con un altro account.')) return;
+
+  // prova a salvare le ultime modifiche su Drive prima di pulire, per non perderle
+  if (driveSync.connected) {
+    try { await performDriveSync(); } catch (e) { console.error('Sync prima della disconnessione fallita', e); }
+  }
+
+  if (driveSync.accessToken && window.google && google.accounts && google.accounts.oauth2) {
+    google.accounts.oauth2.revoke(driveSync.accessToken, () => {});
+  }
+
+  clearTimeout(driveSync.renewalTimer);
+  clearTimeout(driveSync.debounceTimer);
+  driveSync.accessToken = null;
+  driveSync.fileId = null;
+  driveSync.connected = false;
+  await setMeta('driveWasConnected', false);
+
+  await clearAllLocalData();
+  await renderList();
+  const andView = document.getElementById('view-andamento');
+  if (andView && andView.style.display !== 'none') await renderAndamento();
+
+  updateDriveButtons();
+  setDriveStatus('Disconnesso. Pronto per un altro account.', '');
 });
 
 // ---------------- Registrazione service worker (per installabilità PWA e uso offline) ----------------
