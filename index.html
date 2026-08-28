@@ -1581,20 +1581,23 @@ function drawSingleChart(p, points, canvasId) {
   if (!ctx) return;
   destroyChartOn(canvasId);
 
-  const labels = points.map(pt => new Date(pt.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' }));
-  const values = points.map(pt => pt.value);
+  // asse x lineare sui timestamp reali (non "a categorie") così la distanza tra i
+  // punti riflette il tempo effettivamente trascorso tra un referto e l'altro
   const range = getRange(p);
-  const pointColors = values.map(v => isFlaggedVal(v, range.min, range.max) ? '#e0a458' : '#5b9dff');
+  const pointColors = points.map(pt => isFlaggedVal(pt.value, range.min, range.max) ? '#e0a458' : '#5b9dff');
   const pointRadii = points.map(pt => pt.nota ? 7 : 5); // punti con nota leggermente più grandi, per farli notare
+  const xValues = points.map(pt => new Date(pt.date).getTime());
+  const minX = xValues[0];
+  const maxX = xValues[xValues.length - 1];
+  const dateTickFormat = (val) => new Date(val).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' });
 
   chartInstances[canvasId] = new Chart(ctx, {
     type: 'line',
     data: {
-      labels,
       datasets: [
         {
           label: p.nome,
-          data: values,
+          data: points.map(pt => ({ x: new Date(pt.date).getTime(), y: pt.value })),
           borderColor: '#5b9dff',
           backgroundColor: '#5b9dff',
           pointBackgroundColor: pointColors,
@@ -1603,11 +1606,11 @@ function drawSingleChart(p, points, canvasId) {
           tension: 0.25
         },
         {
-          label: 'min', data: labels.map(() => range.min),
+          label: 'min', data: [{ x: minX, y: range.min }, { x: maxX, y: range.min }],
           borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1
         },
         {
-          label: 'max', data: labels.map(() => range.max),
+          label: 'max', data: [{ x: minX, y: range.max }, { x: maxX, y: range.max }],
           borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1
         }
       ]
@@ -1618,13 +1621,14 @@ function drawSingleChart(p, points, canvasId) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            title: (items) => dateTickFormat(items[0].parsed.x),
             // mostra la nota del valore (se presente) sotto il numero, solo per la serie principale
             afterLabel: (ctx) => (ctx.datasetIndex === 0 && points[ctx.dataIndex].nota) ? '📝 ' + points[ctx.dataIndex].nota : undefined
           }
         }
       },
       scales: {
-        x: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } },
+        x: { type: 'linear', ticks: { color: '#8a8f98', font: { size: 10 }, callback: dateTickFormat }, grid: { color: '#1c2028' } },
         y: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } }
       }
     }
@@ -1698,33 +1702,28 @@ function drawCompareChart(params, series, canvasId) {
   if (!ctx) return;
   destroyChartOn(canvasId);
 
-  // asse condiviso per data: unione di tutte le date coinvolte, ordinate
-  const allDatesSet = new Set();
-  params.forEach(p => (series[p.key] || []).forEach(pt => allDatesSet.add(pt.date)));
-  const allDates = [...allDatesSet].sort((a,b) => new Date(a) - new Date(b));
-  const labels = allDates.map(d => new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' }));
-
   // un asse Y per ogni unità diversa tra i parametri selezionati (max 2 visibili L/R, gli altri nascosti ma comunque scalati)
   const unitsInvolved = [...new Set(params.map(p => p.unit))];
   const palette = ['#5b9dff', '#f0916b', '#7ed6a5', '#e0a458', '#c792ea', '#66d9ef'];
+  const dateTickFormat = (val) => new Date(val).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' });
 
+  // asse x lineare sui timestamp reali: ogni dataset porta i propri punti {x,y}
+  // (nessun bisogno di allineare le date su un asse "a categorie" condiviso)
   const datasets = params.map((p, i) => {
-    const map = Object.fromEntries((series[p.key] || []).map(pt => [pt.date, pt.value]));
-    const data = allDates.map(d => (d in map ? map[d] : null));
+    const pts = series[p.key] || [];
     const axisId = 'y_' + unitsInvolved.indexOf(p.unit);
     return {
       label: `${p.nome} (${p.unit})`,
-      data,
+      data: pts.map(pt => ({ x: new Date(pt.date).getTime(), y: pt.value })),
       borderColor: palette[i % palette.length],
       backgroundColor: palette[i % palette.length],
-      spanGaps: true,
       tension: 0.25,
       yAxisID: axisId
     };
   });
 
   const scales = {
-    x: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } }
+    x: { type: 'linear', ticks: { color: '#8a8f98', font: { size: 10 }, callback: dateTickFormat }, grid: { color: '#1c2028' } }
   };
   unitsInvolved.forEach((u, i) => {
     // colora l'asse come la linea del primo parametro che lo usa, così l'appartenenza
@@ -1741,10 +1740,13 @@ function drawCompareChart(params, series, canvasId) {
 
   chartInstances[canvasId] = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets },
+    data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#c7cad1', font: { size: 10 } } } },
+      plugins: {
+        legend: { labels: { color: '#c7cad1', font: { size: 10 } } },
+        tooltip: { callbacks: { title: (items) => dateTickFormat(items[0].parsed.x) } }
+      },
       scales
     }
   });
