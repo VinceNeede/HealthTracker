@@ -921,7 +921,7 @@ async function renderList() {
         <div class="referto-detail" style="display:none" id="detail-${r.id}">
           ${r.valori.map(v => {
             const p = byKey[v.paramKey];
-            const flagged = p ? isFlagged(v.valore, p.min, p.max) : false;
+            const flagged = p ? isFlagged(toCanonical(p, v.valore, v.unit), p.min, p.max) : false;
             return `<div class="val-row"><span>${p ? p.nome : v.paramKey}</span><span class="${flagged ? 'flag' : ''}">${v.valore} ${v.unit}</span></div>`;
           }).join('')}
           <div style="text-align:right; margin-top:8px;">
