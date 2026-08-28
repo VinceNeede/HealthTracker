@@ -551,8 +551,9 @@ async function getIntervalOverrides() {
 }
 
 async function setIntervalOverride(paramKey, months) {
-  // months: numero (anche 0 = promemoria disattivato esplicitamente) per impostare
-  // un override, null per rimuoverlo e tornare al default di PARAM_DICT
+  // months: numero per impostare un intervallo personalizzato, la stringa
+  // 'off' per disattivare esplicitamente il promemoria, null per rimuovere
+  // l'override e tornare al default di PARAM_DICT
   const overrides = await getIntervalOverrides();
   if (months === null) delete overrides[paramKey];
   else overrides[paramKey] = months;
@@ -561,8 +562,15 @@ async function setIntervalOverride(paramKey, months) {
   scheduleDriveSync();
 }
 
+// unico valore "spento" usato dai calcoli è sempre null: sia quando non c'è
+// default né override, sia quando l'utente ha disattivato esplicitamente
+// ('off' esiste solo nello storage per distinguerlo da "nessun override")
 function effectiveIntervalMonths(param, overrides) {
-  return (param.key in overrides) ? overrides[param.key] : param.defaultIntervalMonths;
+  if (param.key in overrides) {
+    const v = overrides[param.key];
+    return v === 'off' ? null : v;
+  }
+  return param.defaultIntervalMonths;
 }
 
 // segna "adesso" come ultima modifica locale — usato dalla sincronizzazione per il last-write-wins
@@ -1232,6 +1240,7 @@ async function renderAndamento() {
         detail.className = 'and-detail';
         detail.id = 'and-detail-' + p.key;
         const hasOverride = p.key in overrides;
+        const isOff = overrides[p.key] === 'off';
         detail.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <div style="font-size:0.9rem; font-weight:600; color:#fff;">${p.nome}</div>
@@ -1243,10 +1252,10 @@ async function renderAndamento() {
           <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px;">Range di riferimento: ${p.min} – ${p.max} ${p.unit}</div>
           <div style="font-size:0.74rem; color:#8a8f98; margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span>Promemoria controllo ogni</span>
-            <input type="number" min="1" step="1" id="and-interval-${p.key}" value="${months || ''}" ${months === 0 ? 'disabled' : ''} style="width:56px; background:#12151c; border:1px solid #2a2f3a; border-radius:6px; color:#fff; padding:3px 6px;">
+            <input type="number" min="1" step="1" id="and-interval-${p.key}" value="${months || ''}" ${isOff ? 'disabled' : ''} style="width:56px; background:#12151c; border:1px solid #2a2f3a; border-radius:6px; color:#fff; padding:3px 6px;">
             <span>mesi</span>
             <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-              <input type="checkbox" id="and-interval-off-${p.key}" ${months === 0 ? 'checked' : ''}>
+              <input type="checkbox" id="and-interval-off-${p.key}" ${isOff ? 'checked' : ''}>
               nessun promemoria
             </label>
             ${hasOverride ? `<span class="expand-btn" id="and-interval-reset-${p.key}">↺ ripristina predefinito</span>` : ''}
@@ -1306,7 +1315,7 @@ async function renderAndamento() {
     if (intervalOffCheckbox) intervalOffCheckbox.addEventListener('change', async (e) => {
       e.stopPropagation();
       if (e.target.checked) {
-        await setIntervalOverride(andOpenKey, 0);
+        await setIntervalOverride(andOpenKey, 'off');
       } else {
         await setIntervalOverride(andOpenKey, null);
       }
