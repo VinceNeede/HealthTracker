@@ -489,7 +489,10 @@ const PARAM_DICT = [
   { key: "azot", nome: "Azotemia", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 10, max: 50, alias: "azotemia urea bun", defaultIntervalMonths: 12 },
   { key: "glic", nome: "Glicemia", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 65, max: 110, alias: "glicemia glucosio zucchero", defaultIntervalMonths: 12 },
   { key: "colest", nome: "Colesterolo totale", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 0, max: 200, alias: "colesterolo totale ldl hdl", defaultIntervalMonths: 60 },
+  { key: "hdl", nome: "Colesterolo HDL", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 40, max: 100, rangeBySex: { M: { min: 40, max: 100 }, F: { min: 50, max: 100 } }, alias: "colesterolo hdl buono", defaultIntervalMonths: 60 },
+  { key: "ldl", nome: "Colesterolo LDL", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 0, max: 130, alias: "colesterolo ldl cattivo", defaultIntervalMonths: 60 },
   { key: "trigli", nome: "Trigliceridi", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 50, max: 180, alias: "trigliceridi", defaultIntervalMonths: 60 },
+  { key: "ac_urico", nome: "Acido urico (uricemia)", cat: "Reni / Metabolico", unit: "mg/dL", units: ["mg/dL"], min: 2.5, max: 7.2, rangeBySex: { M: { min: 3.5, max: 7.2 }, F: { min: 2.5, max: 6.0 } }, alias: "acido urico uricemia gotta", defaultIntervalMonths: 12 },
   { key: "prot_tot", nome: "Proteine totali", cat: "Reni / Metabolico", unit: "g/dL", units: ["g/dL"], min: 6.0, max: 8.2, alias: "proteine totali", defaultIntervalMonths: 12 },
 
   // Ferro
