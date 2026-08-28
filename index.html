@@ -236,14 +236,26 @@
   }
   .and-pflag.overdue { color: #e07a7a; background: #2a1414; }
   .overdue-banner {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
     font-size: 0.74rem; color: #e0a0a0;
     background: #241414; border: 1px solid #4a2323; border-radius: 10px;
     padding: 8px 10px; margin-bottom: 10px;
   }
+  .overdue-header {
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; font-weight: 600;
+  }
+  .overdue-caret { font-size: 0.6rem; color: #e0a0a0; }
+  .overdue-list {
+    display: flex; flex-direction: column; gap: 4px;
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid #4a2323;
+  }
+  .overdue-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
   .overdue-chip {
     font-size: 0.68rem; color: #e07a7a; font-weight: 600;
     background: #2a1717; padding: 2px 8px; border-radius: 8px;
+    white-space: nowrap;
   }
   .and-compare-toggle {
     position: absolute; top: 8px; right: 8px;
@@ -999,18 +1011,37 @@ async function renderList() {
   await renderOverdueBanner();
 }
 
-// banner riepilogativo in cima alla vista Referti con gli esami da ricontrollare
+let overdueBannerOpen = false; // stato apertura/chiusura del banner "esami da (ri)controllare"
+
+// banner riepilogativo in cima alla vista Referti con gli esami da ricontrollare,
+// a tendina: chiuso mostra solo il conteggio, aperto elenca gli esami in verticale
 async function renderOverdueBanner() {
   const el = document.getElementById('overdueBanner');
   if (!el) return;
   const overdue = await getOverdueParams();
-  if (overdue.length === 0) { el.innerHTML = ''; return; }
+  if (overdue.length === 0) { el.innerHTML = ''; overdueBannerOpen = false; return; }
   el.innerHTML = `
     <div class="overdue-banner">
-      <span>⏰ ${overdue.length} esame${overdue.length > 1 ? 'i' : ''} da (ri)controllare:</span>
-      ${overdue.map(o => `<span class="overdue-chip">${o.param.nome} (${o.neverDone ? 'mai fatto' : formatElapsed(o.daysSince)})</span>`).join('')}
+      <div class="overdue-header" id="overdueHeader">
+        <span>⏰ ${overdue.length} esame${overdue.length > 1 ? 'i' : ''} da (ri)controllare</span>
+        <span class="overdue-caret">${overdueBannerOpen ? '▲' : '▼'}</span>
+      </div>
+      ${overdueBannerOpen ? `
+        <div class="overdue-list">
+          ${overdue.map(o => `
+            <div class="overdue-row">
+              <span>${o.param.nome}</span>
+              <span class="overdue-chip">${o.neverDone ? 'mai fatto' : formatElapsed(o.daysSince)}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>
   `;
+  document.getElementById('overdueHeader').addEventListener('click', () => {
+    overdueBannerOpen = !overdueBannerOpen;
+    renderOverdueBanner();
+  });
 }
 
 document.getElementById('newReferto').addEventListener('click', () => {
