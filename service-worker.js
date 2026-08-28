@@ -29,6 +29,10 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
+
+  // ignora richieste non http/https (es. chrome-extension://), la Cache API non le supporta
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return;
+
   const isSameOrigin = url.startsWith(self.location.origin);
 
   if (isSameOrigin) {

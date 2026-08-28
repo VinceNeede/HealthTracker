@@ -1532,11 +1532,8 @@ document.getElementById('driveConnectBtn').addEventListener('click', () => {
     setDriveStatus('Client Google non ancora pronto, riprova tra poco', 'error');
     return;
   }
-<<<<<<< Updated upstream
-=======
   // 'select_account' forza sempre la schermata di scelta account Google,
   // anche se il browser ha già una sessione attiva con un altro indirizzo.
->>>>>>> Stashed changes
   driveSync.tokenClient.requestAccessToken({ prompt: 'select_account consent' });
 });
 
