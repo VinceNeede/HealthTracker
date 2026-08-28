@@ -738,6 +738,53 @@ function isFlagged(val, min, max) {
   return parseFloat(val) < min || parseFloat(val) > max;
 }
 
+// selettore data a tre menu (giorno/mese/anno) al posto di <input type="date">:
+// il picker nativo del browser è troppo piccolo e lo scroll dell'anno troppo lento
+// su mobile, oltre a mostrare il formato mm/dd in base alla lingua del dispositivo
+const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+function daysInMonth(year, month) { // month: 1-12
+  return new Date(year, month, 0).getDate();
+}
+
+function populateDateSelects(isoDate) {
+  const giornoSel = document.getElementById('f_giorno');
+  const meseSel = document.getElementById('f_mese');
+  const annoSel = document.getElementById('f_anno');
+
+  meseSel.innerHTML = MESI_IT.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let y = currentYear; y >= currentYear - 100; y--) years.push(y);
+  annoSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+  const [y, m, d] = isoDate.split('-').map(Number);
+  annoSel.value = y;
+  meseSel.value = m;
+
+  const refreshGiornoOptions = (selectedDay) => {
+    const yy = parseInt(annoSel.value, 10);
+    const mm = parseInt(meseSel.value, 10);
+    const nDays = daysInMonth(yy, mm);
+    const prevValue = selectedDay || parseInt(giornoSel.value, 10) || 1;
+    giornoSel.innerHTML = Array.from({ length: nDays }, (_, i) => i + 1)
+      .map(dd => `<option value="${dd}">${dd}</option>`).join('');
+    giornoSel.value = Math.min(prevValue, nDays);
+  };
+
+  refreshGiornoOptions(d);
+  meseSel.addEventListener('change', () => refreshGiornoOptions());
+  annoSel.addEventListener('change', () => refreshGiornoOptions());
+}
+
+function getFormDateISO() {
+  const y = document.getElementById('f_anno').value;
+  const m = document.getElementById('f_mese').value.padStart(2, '0');
+  const d = document.getElementById('f_giorno').value.padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function renderForm(existing) {
   const formArea = document.getElementById('formArea');
   editingId = existing ? existing.id : null;
@@ -757,7 +804,11 @@ function renderForm(existing) {
       <div class="field-row">
         <div style="flex:1">
           <label>Data prelievo</label>
-          <input type="date" id="f_data">
+          <div style="display:flex; gap:6px;">
+            <select id="f_giorno" style="flex:0.8;"></select>
+            <select id="f_mese" style="flex:1.4;"></select>
+            <select id="f_anno" style="flex:1;"></select>
+          </div>
         </div>
         <div style="flex:1">
           <label>Laboratorio (opzionale)</label>
@@ -805,8 +856,7 @@ function renderForm(existing) {
   document.getElementById('saveForm').onclick = onSave;
 
   // default oggi, oppure la data del referto in modifica
-  const dEl = document.getElementById('f_data');
-  dEl.value = existing ? existing.data : new Date().toISOString().slice(0,10);
+  populateDateSelects(existing ? existing.data : new Date().toISOString().slice(0,10));
   document.getElementById('f_lab').value = existing ? (existing.laboratorio || '') : '';
 
   const formCardEl = document.getElementById('formCard');
@@ -959,7 +1009,7 @@ function renderExtraRows() {
 }
 
 async function onSave() {
-  const data = document.getElementById('f_data').value;
+  const data = getFormDateISO();
   const lab = document.getElementById('f_lab').value;
   if (!data) { alert('Inserisci la data del prelievo'); return; }
 
