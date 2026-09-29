@@ -382,6 +382,21 @@
     margin-right: 6px;
   }
   .compare-note { font-size: 0.68rem; color: #6a7280; margin-top: 6px; }
+
+  /* ---------------- Export per il medico (stampa/PDF) ---------------- */
+  #printExportArea { display: none; }
+  .print-section { margin-bottom: 22px; page-break-inside: avoid; }
+  .print-section h3 { margin: 0 0 2px; font-size: 1rem; }
+  .print-section .print-range { font-size: 0.8rem; color: #555; margin-bottom: 8px; }
+  .print-section img { max-width: 100%; display: block; margin-bottom: 8px; }
+  .print-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .print-table th, .print-table td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+  .print-table .print-flag { color: #b8590a; font-weight: 600; }
+  .print-note { font-size: 0.74rem; color: #555; font-style: italic; }
+  @media print {
+    body > *:not(#printExportArea) { display: none !important; }
+    #printExportArea { display: block !important; }
+  }
 </style>
 </head>
 <body>
@@ -407,6 +422,7 @@
     <option value="F">Donna</option>
   </select>
   <button class="btn secondary small" id="openRemindersBtn" style="margin-left:auto;">⚙️ Gestisci promemoria</button>
+  <button class="btn secondary small" id="openShareBtn">🩺 Condividi con il medico</button>
 </div>
 
 <div class="view-tabs">
@@ -460,6 +476,58 @@
   </div>
   <div class="chart-modal-body reminders-modal-body" id="remindersModalBody"></div>
 </div>
+
+<div id="shareModal" class="chart-modal-overlay">
+  <div class="chart-modal-header">
+    <div class="chart-modal-title">Condividi con il medico</div>
+    <span id="shareModalClose" class="close-btn" style="cursor:pointer;">chiudi ✕</span>
+  </div>
+  <div class="chart-modal-body reminders-modal-body" id="shareModalBody">
+    <div style="margin-bottom:14px;">
+      <div style="font-size:0.8rem; color:#d8dae0; margin-bottom:8px;">Includere tutto lo storico?</div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small" id="shareAllYes">Sì, tutto</button>
+        <button class="btn secondary small" id="shareAllNo">No, scegli cosa includere</button>
+      </div>
+    </div>
+
+    <div id="shareFilters" style="display:none;">
+      <div class="reminders-group-title">Intervallo di date</div>
+      <div style="display:flex; gap:6px; margin-bottom:6px; align-items:center; flex-wrap:wrap;">
+        <span style="font-size:0.74rem; color:#8a8f98; width:20px;">Da</span>
+        <select id="share_from_giorno" style="flex:0.8;"></select>
+        <select id="share_from_mese" style="flex:1.2;"></select>
+        <select id="share_from_anno" style="flex:1;"></select>
+      </div>
+      <div style="display:flex; gap:6px; margin-bottom:14px; align-items:center; flex-wrap:wrap;">
+        <span style="font-size:0.74rem; color:#8a8f98; width:20px;">A</span>
+        <select id="share_to_giorno" style="flex:0.8;"></select>
+        <select id="share_to_mese" style="flex:1.2;"></select>
+        <select id="share_to_anno" style="flex:1;"></select>
+      </div>
+
+      <div class="reminders-group-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Parametri da includere</span>
+        <span>
+          <span class="expand-btn" id="shareSelectAll">tutti</span>
+          &nbsp;/&nbsp;
+          <span class="expand-btn" id="shareSelectNone">nessuno</span>
+        </span>
+      </div>
+      <div id="shareParamsList"></div>
+    </div>
+
+    <div id="shareActions" style="display:none; margin-top:16px; gap:8px; flex-wrap:wrap;">
+      <button class="btn small" id="exportPdfBtn">📄 Esporta PDF</button>
+      <button class="btn secondary small" id="exportHtmlBtn">💾 Esporta HTML interattivo</button>
+    </div>
+    <div style="font-size:0.68rem; color:#6f7684; margin-top:8px;">
+      L'HTML interattivo richiede connessione internet alla prima apertura (carica le librerie dei grafici).
+    </div>
+  </div>
+</div>
+
+<div id="printExportArea"></div>
 
 <script>
 // ---------------- Dizionario canonico esami ----------------
@@ -850,10 +918,10 @@ function daysInMonth(year, month) { // month: 1-12
   return new Date(year, month, 0).getDate();
 }
 
-function populateDateSelects(isoDate) {
-  const giornoSel = document.getElementById('f_giorno');
-  const meseSel = document.getElementById('f_mese');
-  const annoSel = document.getElementById('f_anno');
+function populateDateSelects(prefix, isoDate) {
+  const giornoSel = document.getElementById(prefix + '_giorno');
+  const meseSel = document.getElementById(prefix + '_mese');
+  const annoSel = document.getElementById(prefix + '_anno');
 
   meseSel.innerHTML = MESI_IT.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
 
@@ -877,14 +945,19 @@ function populateDateSelects(isoDate) {
   };
 
   refreshGiornoOptions(d);
-  meseSel.addEventListener('change', () => refreshGiornoOptions());
-  annoSel.addEventListener('change', () => refreshGiornoOptions());
+  // lega gli handler solo la prima volta: gli elementi (a differenza del form referto,
+  // ricreato ad ogni render) sono statici nella pagina, es. nel modal di condivisione
+  if (!meseSel.dataset.bound) {
+    meseSel.addEventListener('change', () => refreshGiornoOptions());
+    annoSel.addEventListener('change', () => refreshGiornoOptions());
+    meseSel.dataset.bound = '1';
+  }
 }
 
-function getFormDateISO() {
-  const y = document.getElementById('f_anno').value;
-  const m = document.getElementById('f_mese').value.padStart(2, '0');
-  const d = document.getElementById('f_giorno').value.padStart(2, '0');
+function getFormDateISO(prefix) {
+  const y = document.getElementById(prefix + '_anno').value;
+  const m = document.getElementById(prefix + '_mese').value.padStart(2, '0');
+  const d = document.getElementById(prefix + '_giorno').value.padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
@@ -973,7 +1046,7 @@ function renderForm(existing) {
   });
 
   // default oggi, oppure la data del referto in modifica
-  populateDateSelects(existing ? existing.data : new Date().toISOString().slice(0,10));
+  populateDateSelects('f', existing ? existing.data : new Date().toISOString().slice(0,10));
   document.getElementById('f_lab').value = existing ? (existing.laboratorio || '') : '';
 
   const formCardEl = document.getElementById('formCard');
@@ -1135,7 +1208,7 @@ function renderExtraRows() {
 }
 
 async function onSave() {
-  const data = getFormDateISO();
+  const data = getFormDateISO('f');
   const lab = document.getElementById('f_lab').value;
   if (!data) { alert('Inserisci la data del prelievo'); return; }
 
@@ -1350,10 +1423,9 @@ function toCanonical(param, value, unit) {
 }
 
 // costruisce, per ogni parametro con almeno un dato, la serie storica ordinata per data
-async function buildSeries() {
-  const referti = await loadAllReferti();
+function buildSeriesFromReferti(referti) {
   const sorted = [...referti].sort((a,b) => new Date(a.data) - new Date(b.data));
-  const series = {}; // paramKey -> [{date, value}]
+  const series = {}; // paramKey -> [{date, value, nota}]
 
   sorted.forEach(r => {
     r.valori.forEach(v => {
@@ -1365,6 +1437,26 @@ async function buildSeries() {
     });
   });
   return series;
+}
+
+async function buildSeries() {
+  const referti = await loadAllReferti();
+  return buildSeriesFromReferti(referti);
+}
+
+// filtra i referti per l'export "Condividi con il medico": tutto lo storico oppure
+// un intervallo di date + un sottoinsieme di parametri, scartando i referti che
+// restano senza alcun valore dopo il filtro
+async function buildShareDataset({ allHistory, dateFrom, dateTo, paramKeys }) {
+  const referti = await loadAllReferti();
+  const filtered = referti
+    .filter(r => allHistory || (r.data >= dateFrom && r.data <= dateTo))
+    .map(r => ({ ...r, valori: allHistory ? r.valori : r.valori.filter(v => paramKeys.has(v.paramKey)) }))
+    .filter(r => r.valori.length > 0);
+  const series = buildSeriesFromReferti(filtered);
+  const keysWithData = Object.keys(series);
+  const params = PARAM_DICT.filter(p => keysWithData.includes(p.key));
+  return { referti: filtered, series, params };
 }
 
 function isFlaggedVal(v, min, max) {
@@ -1801,6 +1893,215 @@ function drawCompareChart(params, series, canvasId) {
   });
 }
 
+// --- Export "Condividi con il medico" ---
+
+// disegna il grafico di un parametro su un canvas staccato dal layout (dimensioni fisse,
+// responsive:false) e lo converte in un'immagine PNG: serve per il PDF, dove il
+// contenitore #printExportArea resta invisibile finché non si stampa e Chart.js non
+// potrebbe altrimenti calcolare correttamente le dimensioni del grafico
+async function renderChartToImage(p, points, width = 700, height = 300) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.position = 'absolute';
+  canvas.style.left = '-9999px';
+  document.body.appendChild(canvas);
+
+  const range = getRange(p);
+  const dateTickFormat = (val) => new Date(val).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' });
+  const xValues = points.map(pt => new Date(pt.date).getTime());
+  const minX = xValues[0];
+  const maxX = xValues[xValues.length - 1];
+  const pointColors = points.map(pt => isFlaggedVal(pt.value, range.min, range.max) ? '#b8590a' : '#2f6fd6');
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: p.nome,
+          data: points.map(pt => ({ x: new Date(pt.date).getTime(), y: pt.value })),
+          borderColor: '#2f6fd6', backgroundColor: '#2f6fd6',
+          pointBackgroundColor: pointColors, pointBorderColor: pointColors,
+          pointRadius: 4, tension: 0.25
+        },
+        { label: 'min', data: [{ x: minX, y: range.min }, { x: maxX, y: range.min }], borderColor: '#999', borderDash: [4, 4], pointRadius: 0, borderWidth: 1 },
+        { label: 'max', data: [{ x: minX, y: range.max }, { x: maxX, y: range.max }], borderColor: '#999', borderDash: [4, 4], pointRadius: 0, borderWidth: 1 }
+      ]
+    },
+    options: {
+      responsive: false, animation: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { type: 'linear', ticks: { color: '#333', callback: dateTickFormat }, grid: { color: '#ddd' } },
+        y: { ticks: { color: '#333' }, grid: { color: '#ddd' } }
+      }
+    }
+  });
+
+  const img = chart.toBase64Image();
+  chart.destroy();
+  canvas.remove();
+  return img;
+}
+
+// popola #printExportArea (nascosto a schermo, visibile solo in stampa via @media print)
+// con tabelle + grafici per ogni parametro del dataset filtrato
+async function renderPrintExport(dataset) {
+  const area = document.getElementById('printExportArea');
+  const cats = [...new Set(dataset.params.map(p => p.cat))];
+  const sections = [];
+
+  for (const cat of cats) {
+    sections.push(`<h2>${cat}</h2>`);
+    for (const p of dataset.params.filter(pp => pp.cat === cat)) {
+      const points = dataset.series[p.key];
+      const range = getRange(p);
+      const img = await renderChartToImage(p, points);
+      const rows = points.map(pt => {
+        const flagged = isFlaggedVal(pt.value, range.min, range.max);
+        const dataFmt = new Date(pt.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+        return `<tr>
+          <td>${dataFmt}</td>
+          <td class="${flagged ? 'print-flag' : ''}">${roundSmart(pt.value)} ${p.unit}${flagged ? ' ⚠' : ''}</td>
+          <td class="print-note">${pt.nota || ''}</td>
+        </tr>`;
+      }).join('');
+
+      sections.push(`
+        <div class="print-section">
+          <h3>${p.nome}</h3>
+          <div class="print-range">Range di riferimento: ${range.min} – ${range.max} ${p.unit}</div>
+          <img src="${img}" alt="Grafico ${p.nome}">
+          <table class="print-table">
+            <thead><tr><th>Data</th><th>Valore</th><th>Nota</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `);
+    }
+  }
+
+  area.innerHTML = `
+    <h1>Riepilogo analisi</h1>
+    <div style="margin-bottom:16px; color:#555;">Generato il ${new Date().toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+    ${sections.join('')}
+  `;
+}
+
+// costruisce un file HTML autonomo e interattivo (stesso motore di grafici dell'app,
+// zoom/pan incluso) con dentro solo lo snapshot di dati scelto — nessun collegamento
+// all'account Drive originale, nessuna possibilità di modifica
+function buildShareHtml(dataset) {
+  const paramsMeta = dataset.params.map(p => ({ key: p.key, nome: p.nome, cat: p.cat, unit: p.unit, range: getRange(p) }));
+  const seriesData = {};
+  dataset.params.forEach(p => { seriesData[p.key] = dataset.series[p.key]; });
+  // '</' spezzerebbe il tag <script> se presente dentro una nota: si esegue l'escape
+  const embeddedData = JSON.stringify({ params: paramsMeta, series: seriesData }).replace(/</g, '\\u003c');
+  const generatedOn = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisi condivise</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"><\/script>
+<style>
+  body { background:#0e1015; color:#e8eaed; font-family:-apple-system,BlinkMacSystemFont,sans-serif; margin:0; padding:16px; }
+  h1 { font-size:1.2rem; margin:0 0 4px; }
+  .meta { color:#8a8f98; font-size:0.78rem; margin-bottom:20px; }
+  .card { border:1px solid #262a33; border-radius:12px; padding:14px; margin-bottom:16px; }
+  .card h3 { margin:0 0 4px; font-size:0.95rem; }
+  .range { font-size:0.75rem; color:#8a8f98; margin-bottom:10px; }
+  .chart-wrap { position:relative; height:280px; }
+</style>
+</head>
+<body>
+  <h1>Analisi condivise</h1>
+  <div class="meta">Generato il ${generatedOn} — snapshot statico, non collegato all'account originale. Rotellina/pinch per zoomare, trascina per spostarti.</div>
+  <div id="cards"></div>
+<script>
+const DATA = ${embeddedData};
+
+function isFlaggedVal(v, min, max) {
+  if (v === null || v === undefined || isNaN(v)) return false;
+  return v < min || v > max;
+}
+
+const verticalLinePlugin = {
+  id: 'verticalLine',
+  afterDraw: (chart) => {
+    const active = chart.tooltip && chart.tooltip._active;
+    if (!active || !active.length) return;
+    const { ctx, chartArea } = chart;
+    const x = active[0].element.x;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+Chart.register(verticalLinePlugin);
+
+const dateTickFormat = (val) => new Date(val).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: '2-digit' });
+const cardsEl = document.getElementById('cards');
+
+DATA.params.forEach(p => {
+  const points = DATA.series[p.key];
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = '<h3>' + p.nome + '</h3>' +
+    '<div class="range">Range di riferimento: ' + p.range.min + ' – ' + p.range.max + ' ' + p.unit + '</div>' +
+    '<div class="chart-wrap"><canvas></canvas></div>';
+  cardsEl.appendChild(card);
+
+  const canvas = card.querySelector('canvas');
+  const xValues = points.map(pt => new Date(pt.date).getTime());
+  const minX = xValues[0], maxX = xValues[xValues.length - 1];
+  const pointColors = points.map(pt => isFlaggedVal(pt.value, p.range.min, p.range.max) ? '#e0a458' : '#5b9dff');
+
+  new Chart(canvas, {
+    type: 'line',
+    data: {
+      datasets: [
+        { label: p.nome, data: points.map(pt => ({ x: new Date(pt.date).getTime(), y: pt.value })), borderColor: '#5b9dff', backgroundColor: '#5b9dff', pointBackgroundColor: pointColors, pointBorderColor: pointColors, pointRadius: 5, tension: 0.25 },
+        { label: 'min', data: [{ x: minX, y: p.range.min }, { x: maxX, y: p.range.min }], borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1 },
+        { label: 'max', data: [{ x: minX, y: p.range.max }, { x: maxX, y: p.range.max }], borderColor: '#3a3f4a', borderDash: [4,4], pointRadius: 0, borderWidth: 1 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: (item) => item.datasetIndex === 0,
+          callbacks: {
+            title: (items) => dateTickFormat(items[0].parsed.x),
+            afterLabel: (ctx) => (ctx.datasetIndex === 0 && points[ctx.dataIndex].nota) ? '📝 ' + points[ctx.dataIndex].nota : undefined
+          }
+        },
+        zoom: { pan: { enabled: true, mode: 'xy' }, zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' } }
+      },
+      scales: {
+        x: { type: 'linear', ticks: { color: '#8a8f98', font: { size: 10 }, callback: dateTickFormat }, grid: { color: '#1c2028' } },
+        y: { ticks: { color: '#8a8f98', font: { size: 10 } }, grid: { color: '#1c2028' } }
+      }
+    }
+  });
+});
+<\/script>
+</body>
+</html>`;
+}
+
 // --- Modale grafico ingrandito ---
 function openChartModal(title, drawFn) {
   document.getElementById('chartModalTitle').textContent = title;
@@ -1848,6 +2149,100 @@ document.getElementById('remindersModal').addEventListener('click', (e) => {
 });
 document.getElementById('remindersSearch').addEventListener('input', (e) => {
   renderRemindersModal(e.target.value);
+});
+
+// ---------------- Condividi con il medico (export PDF / HTML interattivo) ----------------
+
+let shareAllHistory = true;
+
+function renderShareParamsList() {
+  const el = document.getElementById('shareParamsList');
+  const cats = [...new Set(PARAM_DICT.map(p => p.cat))];
+  el.innerHTML = cats.map(cat => `
+    <div class="reminders-group-title">${cat}</div>
+    ${PARAM_DICT.filter(p => p.cat === cat).map(p => `
+      <label style="display:flex; align-items:center; gap:6px; font-size:0.78rem; color:#d8dae0; padding:3px 0;">
+        <input type="checkbox" class="share-param-checkbox" value="${p.key}" checked>
+        ${p.nome}
+      </label>
+    `).join('')}
+  `).join('');
+}
+
+function getShareFilterState() {
+  const paramKeys = new Set(
+    [...document.querySelectorAll('.share-param-checkbox:checked')].map(cb => cb.value)
+  );
+  return {
+    allHistory: shareAllHistory,
+    dateFrom: getFormDateISO('share_from'),
+    dateTo: getFormDateISO('share_to'),
+    paramKeys
+  };
+}
+
+async function openShareModal() {
+  document.getElementById('shareModal').classList.add('open');
+  shareAllHistory = true;
+  document.getElementById('shareFilters').style.display = 'none';
+  document.getElementById('shareActions').style.display = 'none';
+
+  const referti = await loadAllReferti();
+  const sorted = [...referti].sort((a,b) => new Date(a.data) - new Date(b.data));
+  const today = new Date().toISOString().slice(0,10);
+  const firstDate = sorted.length ? sorted[0].data : today;
+  const lastDate = sorted.length ? sorted[sorted.length - 1].data : today;
+  populateDateSelects('share_from', firstDate);
+  populateDateSelects('share_to', lastDate);
+
+  renderShareParamsList();
+}
+
+function closeShareModal() {
+  document.getElementById('shareModal').classList.remove('open');
+}
+
+document.getElementById('openShareBtn').addEventListener('click', openShareModal);
+document.getElementById('shareModalClose').addEventListener('click', closeShareModal);
+document.getElementById('shareModal').addEventListener('click', (e) => {
+  if (e.target.id === 'shareModal') closeShareModal();
+});
+document.getElementById('shareAllYes').addEventListener('click', () => {
+  shareAllHistory = true;
+  document.getElementById('shareFilters').style.display = 'none';
+  document.getElementById('shareActions').style.display = 'flex';
+});
+document.getElementById('shareAllNo').addEventListener('click', () => {
+  shareAllHistory = false;
+  document.getElementById('shareFilters').style.display = 'block';
+  document.getElementById('shareActions').style.display = 'flex';
+});
+document.getElementById('shareSelectAll').addEventListener('click', () => {
+  document.querySelectorAll('.share-param-checkbox').forEach(cb => cb.checked = true);
+});
+document.getElementById('shareSelectNone').addEventListener('click', () => {
+  document.querySelectorAll('.share-param-checkbox').forEach(cb => cb.checked = false);
+});
+document.getElementById('exportPdfBtn').addEventListener('click', async () => {
+  const dataset = await buildShareDataset(getShareFilterState());
+  if (dataset.params.length === 0) { alert('Nessun dato da esportare con questi filtri.'); return; }
+  await renderPrintExport(dataset);
+  closeShareModal();
+  window.print();
+});
+document.getElementById('exportHtmlBtn').addEventListener('click', async () => {
+  const dataset = await buildShareDataset(getShareFilterState());
+  if (dataset.params.length === 0) { alert('Nessun dato da esportare con questi filtri.'); return; }
+  const html = buildShareHtml(dataset);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'analisi_condivise_' + new Date().toISOString().slice(0,10) + '.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 });
 
 // --- Toggle tra le due viste ---
