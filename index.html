@@ -391,6 +391,10 @@
 
 <div id="driveBar" class="drive-bar">
   <button class="btn secondary small" id="driveConnectBtn">🔗 Connetti Google Drive</button>
+  <label id="rememberMeLabel" style="display:flex; align-items:center; gap:4px; font-size:0.72rem; color:#8a8f98; cursor:pointer;">
+    <input type="checkbox" id="rememberMeCheckbox" checked>
+    resta collegato
+  </label>
   <button class="btn secondary small" id="driveDisconnectBtn" style="display:none;">✕ Disconnetti / cambia account</button>
   <span id="driveStatus" class="drive-status"></span>
 </div>
@@ -1581,6 +1585,28 @@ function destroyChartOn(canvasId) {
   }
 }
 
+// disegna una linea verticale nel punto attivo del tooltip: su schermi touch è molto
+// più facile toccare "vicino alla data giusta" che centrare il dito sul singolo punto,
+// e la linea rende visibile a quale valore corrisponde il tocco
+const verticalLinePlugin = {
+  id: 'verticalLine',
+  afterDraw: (chart) => {
+    const active = chart.tooltip && chart.tooltip._active;
+    if (!active || !active.length) return;
+    const { ctx, chartArea } = chart;
+    const x = active[0].element.x;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+Chart.register(verticalLinePlugin);
+
 // opzioni del plugin zoom/pan, attive solo nel grafico ingrandito (nel modal) per non
 // interferire con lo scroll della pagina quando si tocca un grafico piccolo inline
 function zoomPluginOptions(canvasId) {
@@ -1633,9 +1659,13 @@ function drawSingleChart(p, points, canvasId) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      // 'index'+intersect:false: basta toccare vicino alla data giusta, non serve
+      // centrare il dito sul singolo punto — molto più comodo su schermi touch
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
       plugins: {
         legend: { display: false },
         tooltip: {
+          filter: (item) => item.datasetIndex === 0, // nasconde le linee tratteggiate min/max dal tooltip
           callbacks: {
             title: (items) => dateTickFormat(items[0].parsed.x),
             // mostra la nota del valore (se presente) sotto il numero, solo per la serie principale
@@ -1760,6 +1790,7 @@ function drawCompareChart(params, series, canvasId) {
     data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
       plugins: {
         legend: { labels: { color: '#c7cad1', font: { size: 10 } } },
         tooltip: { callbacks: { title: (items) => dateTickFormat(items[0].parsed.x) } },
@@ -1866,6 +1897,7 @@ function setDriveStatus(text, cls) {
 
 function updateDriveButtons() {
   document.getElementById('driveConnectBtn').style.display = driveSync.connected ? 'none' : '';
+  document.getElementById('rememberMeLabel').style.display = driveSync.connected ? 'none' : '';
   document.getElementById('driveDisconnectBtn').style.display = driveSync.connected ? '' : 'none';
 }
 
@@ -1908,7 +1940,13 @@ function initDriveClient(attempt = 0) {
       }
       driveSync.accessToken = resp.access_token;
       driveSync.connected = true;
-      await setMeta('driveWasConnected', true);
+      // solo una connessione esplicita (click su "Connetti") aggiorna la preferenza di
+      // riconnessione automatica: un tentativo silenzioso (avvio app o rinnovo token) non
+      // deve sovrascrivere la scelta fatta dall'utente l'ultima volta che si è connesso
+      if (!wasSilent) {
+        const remember = document.getElementById('rememberMeCheckbox').checked;
+        await setMeta('driveWasConnected', remember);
+      }
       updateDriveButtons();
       scheduleTokenRenewal(resp.expires_in);
       await performDriveSync();
